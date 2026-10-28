@@ -133,6 +133,20 @@ pnpm dev
 
 ---
 
+## 📦 Container Images (GitHub Packages)
+
+Pre-built Docker images are published to the **GitHub Container Registry (`ghcr.io`)** on every release:
+
+```bash
+# Pull API container
+docker pull ghcr.io/jeevanriship/whatsapp-ai-sales-agent-api:latest
+
+# Pull Worker container
+docker pull ghcr.io/jeevanriship/whatsapp-ai-sales-agent-worker:latest
+```
+
+---
+
 ## 🛡️ License
 
 This project is licensed under the [Apache 2.0 License](LICENSE).

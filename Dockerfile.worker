@@ -1,0 +1,43 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+
+# Copy monorepo manifests
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+
+# Copy package manifests for layer caching
+COPY apps/api/package.json ./apps/api/
+COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/ai/package.json ./packages/ai/
+COPY packages/crypto/package.json ./packages/crypto/
+COPY packages/db/package.json ./packages/db/
+COPY packages/payments/package.json ./packages/payments/
+COPY packages/queue/package.json ./packages/queue/
+COPY packages/types/package.json ./packages/types/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy sources required for the Worker
+COPY apps/worker ./apps/worker
+COPY packages ./packages
+
+# Generate Prisma client and build @wcos/worker and internal dependencies
+RUN pnpm db:generate
+RUN pnpm --filter @wcos/worker... build
+
+# Runner stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+
+COPY --from=builder /app ./
+
+CMD ["pnpm", "--filter", "@wcos/worker", "start"]
