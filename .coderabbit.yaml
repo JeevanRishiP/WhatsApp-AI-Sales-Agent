@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Be concise, constructive, and prioritize correctness, security, concurrency handling (BullMQ, Redis locks), and type-safety across TypeScript packages."
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "master"
+  path_instructions:
+    - path: "apps/api/**"
+      instructions: "Ensure webhook signatures (Razorpay, PhonePe, Meta/Evolution) are verified using constant-time timing-safe comparison, and routes adhere to Fastify best practices."
+    - path: "apps/worker/**"
+      instructions: "Check Redis distributed locks for conversation concurrency, BullMQ queue processor error handling, and LLM tool execution safety."
+    - path: "packages/db/**"
+      instructions: "Ensure Prisma migrations, multi-tenant scoping, and schema constraints maintain relational integrity and index performance."
+    - path: "apps/dashboard/**"
+      instructions: "Ensure Next.js 15 App Router conventions, React Server Component / Client Component boundaries, and clean Tailwind styling."
+
+chat:
+  auto_reply: true
