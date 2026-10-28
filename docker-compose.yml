@@ -1,0 +1,126 @@
+# ╔═══════════════════════════════════════════════════════════════╗
+# ║  WhatsApp Commerce OS — Local Development Stack              ║
+# ║                                                               ║
+# ║  Usage:                                                       ║
+# ║    docker compose up -d          # start all services         ║
+# ║    docker compose logs -f evo    # tail Evolution API logs    ║
+# ║    docker compose down           # stop all services          ║
+# ║                                                               ║
+# ║  Note: PostgreSQL is on Supabase (managed).                   ║
+# ║  Redis here is for LOCAL dev only — prod uses Upstash.        ║
+# ╚═══════════════════════════════════════════════════════════════╝
+
+services:
+  # ─── Evolution API (WhatsApp) ──────────────────────────────
+  evolution-api:
+    container_name: wcos-evolution
+    image: evoapicloud/evolution-api:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Server config
+      - SERVER_URL=http://localhost:8080
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - LOG_LEVEL=WARN
+
+      # Authentication
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-your-evolution-dev-key}
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+
+      # Database — Evolution stores its own state
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:postgres@postgres:5432/evolution
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+
+      # Redis for Evolution internal cache
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379/0
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_LOCAL_ENABLED=false
+
+      # Webhook config — Evolution will POST events here
+      - WEBHOOK_GLOBAL_URL=http://host.docker.internal:${PORT:-3002}/webhooks/evolution
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_MESSAGES_UPDATE=true
+      - WEBHOOK_EVENTS_SEND_MESSAGE=true
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_QRCODE_UPDATED=true
+
+      # Instance management
+      - DEL_INSTANCE=false
+      - DEL_TEMP_INSTANCES=true
+
+      # Chatwoot integration (disabled for now)
+      - CHATWOOT_ENABLED=false
+
+      # RabbitMQ (disabled — we use BullMQ)
+      - RABBITMQ_ENABLED=false
+
+      # Typebot (disabled)
+      - TYPEBOT_ENABLED=false
+    volumes:
+      - evolution_data:/evolution/instances
+    networks:
+      - wcos-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ─── Redis (local dev only — prod uses Upstash) ───────────
+  redis:
+    container_name: wcos-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - wcos-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Local PostgreSQL with pgvector ──────────────────────
+  postgres:
+    container_name: wcos-postgres
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=wcos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wcos-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  evolution_data:
+  redis_data:
+  postgres_data:
+
+networks:
+  wcos-network:
+    driver: bridge

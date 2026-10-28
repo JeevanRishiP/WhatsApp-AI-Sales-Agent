@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+out/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+packages/db/prisma/*.db
+packages/db/prisma/migrations/*.sql.bak
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# Sentry
+.sentryclirc
+
+# Misc
+*.tgz
+*.tar.gz
+c.txt
+*.cookie
+*.cookies

@@ -1,0 +1,1327 @@
+{
+  "tenants": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Aura Luxe Boutique",
+      "ownerName": "Aditi Sharma",
+      "ownerPhone": "+919876543210",
+      "ownerEmail": "aditi@auraluxe.in",
+      "businessCategory": "Luxury Ethnic Wear & Sarees",
+      "status": "ACTIVE",
+      "plan": "GROWTH",
+      "apiKey": "sk_live_aura_8f92jkl2309x",
+      "whatsappInstanceName": "wa_aura_luxe_01",
+      "persona": {
+        "agentName": "Meera",
+        "tone": "Warm, consultative, celebratory, and conversational",
+        "language": "hinglish",
+        "welcomeMessage": "Namaste! ✨ Welcome to Aura Luxe Boutique. I'm Meera, your personal styling assistant. Are you looking for something specific, or shall I show you our new festive arrivals?",
+        "brandGuidelines": "Always address customers with respect. Highlight the heritage and handwoven nature of our products. Never use aggressive sales tactics. Use emojis beautifully but sparingly."
+      },
+      "monthlyMessageCount": 8450,
+      "monthlyMessageLimit": 15000
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "RoastCraft India",
+      "ownerName": "Karan Singhania",
+      "ownerPhone": "+919876543211",
+      "ownerEmail": "hello@roastcraft.in",
+      "businessCategory": "D2C Specialty Coffee & Beans",
+      "status": "ACTIVE",
+      "plan": "GROWTH",
+      "apiKey": "sk_live_roast_9f82kxl2390y",
+      "whatsappInstanceName": "wa_roastcraft_01",
+      "persona": {
+        "agentName": "Kabir",
+        "tone": "Energetic, knowledgeable, friendly",
+        "language": "en",
+        "welcomeMessage": "Hey there! ☕ Welcome to RoastCraft India. Ready to brew the perfect cup? Let me know your preferred roast or brewing method!",
+        "brandGuidelines": "Focus on the origin of the beans, roast profiles, and brewing tips. Upsell brewing equipment gently."
+      },
+      "monthlyMessageCount": 12050,
+      "monthlyMessageLimit": 15000
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": "VedaGlow",
+      "ownerName": "Sneha Nair",
+      "ownerPhone": "+919876543212",
+      "ownerEmail": "care@vedaglow.in",
+      "businessCategory": "Natural Ayurvedic Skincare & Cosmetics",
+      "status": "ACTIVE",
+      "plan": "GROWTH",
+      "apiKey": "sk_live_veda_7h82mxl1190z",
+      "whatsappInstanceName": "wa_vedaglow_01",
+      "persona": {
+        "agentName": "Tara",
+        "tone": "Calm, holistic, caring",
+        "language": "hinglish",
+        "welcomeMessage": "Namaste! 🌿 Welcome to VedaGlow. I'm Tara. How can I help you achieve your natural skin goals today?",
+        "brandGuidelines": "Emphasize 100% natural, cruelty-free, and Ayurvedic roots. Ask about skin types before recommending products."
+      },
+      "monthlyMessageCount": 4320,
+      "monthlyMessageLimit": 15000
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "NexPulse Tech",
+      "ownerName": "Rahul Verma",
+      "ownerPhone": "+919876543213",
+      "ownerEmail": "support@nexpulse.in",
+      "businessCategory": "Smart Wearables & Audio Gadgets",
+      "status": "ACTIVE",
+      "plan": "GROWTH",
+      "apiKey": "sk_live_nex_6g82nxl2291a",
+      "whatsappInstanceName": "wa_nexpulse_01",
+      "persona": {
+        "agentName": "Vikram",
+        "tone": "Tech-savvy, concise, modern",
+        "language": "en",
+        "welcomeMessage": "Hi! 🚀 Welcome to NexPulse. Looking to upgrade your audio or track your fitness? I'm here to help.",
+        "brandGuidelines": "Focus on specs, battery life, and warranty. Keep responses short and punchy."
+      },
+      "monthlyMessageCount": 14200,
+      "monthlyMessageLimit": 15000
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Mitti & Clay",
+      "ownerName": "Aisha Khan",
+      "ownerPhone": "+919876543214",
+      "ownerEmail": "studio@mittiandclay.in",
+      "businessCategory": "Artisanal Home Decor & Ceramics",
+      "status": "ACTIVE",
+      "plan": "GROWTH",
+      "apiKey": "sk_live_mitti_5f82pxl3392b",
+      "whatsappInstanceName": "wa_mitti_01",
+      "persona": {
+        "agentName": "Aisha",
+        "tone": "Artistic, slow-living, aesthetic",
+        "language": "en",
+        "welcomeMessage": "Hello! 🏺 Welcome to Mitti & Clay. Everything here is handcrafted with love. What kind of space are you looking to decorate?",
+        "brandGuidelines": "Highlight the artisan crafting process, imperfections as beauty, and sustainable packaging."
+      },
+      "monthlyMessageCount": 2100,
+      "monthlyMessageLimit": 15000
+    }
+  ],
+  "products": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-01",
+      "name": "Crimson Red Bridal Banarasi Silk Saree",
+      "description": "An exquisite handwoven Banarasi silk saree in deep crimson, featuring intricate pure gold zari work. Perfect for bridal ceremonies and grand celebrations.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 22500.0,
+      "salePrice": 19500.0,
+      "stock": 8,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Silk",
+        "primaryColor": "Crimson Red",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "850g",
+        "careInstructions": "Dry clean only. Store in a breathable cotton cloth."
+      },
+      "tags": ["bridal", "red saree", "banarasi", "wedding", "gold zari", "silk", "handwoven"],
+      "searchText": "crimson red bridal banarasi silk saree pure gold zari wedding handwoven",
+      "embeddingText": "Drape yourself in royal elegance with this crimson red Banarasi silk saree. Heavily adorned with pure gold zari motifs, it offers a majestic drape and luxurious feel. Styled best with heavy Kundan jewelry, this piece invokes traditional Indian heritage, making every bride feel like a queen on her special day.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1738690875111-ff1a2d7c4a55",
+        "https://images.unsplash.com/photo-1738690940173-e16fee805fe9"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-01",
+      "name": "Royal Blue Kanjeevaram Silk Saree",
+      "description": "A regal Kanjeevaram silk saree boasting a rich blue hue and a contrasting pink pallu. Handloomed by master artisans of Kanchipuram.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 18000.0,
+      "salePrice": 18000.0,
+      "stock": 12,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Kanchipuram Silk",
+        "primaryColor": "Royal Blue",
+        "zariType": "Silver and Gold Zari",
+        "occasion": "Wedding Guest, Reception",
+        "weight": "750g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["kanjeevaram", "blue saree", "wedding guest", "silk", "south indian", "contrast pallu"],
+      "searchText": "royal blue kanjeevaram silk saree contrast pink pallu wedding guest handloomed",
+      "embeddingText": "Experience the timeless charm of South Indian heritage with this royal blue Kanjeevaram saree. The striking contrast of the vibrant pink pallu woven with silver and gold zari creates a visual masterpiece. It drapes beautifully, offering a stiff yet graceful silhouette perfect for evening receptions and grand temple visits.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1729096280865-190c8b63b6f6",
+        "https://images.unsplash.com/photo-1710972199689-90fbb468e901"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-02",
+      "name": "Emerald Green Banarasi Brocade Saree",
+      "description": "Lush emerald green Banarasi silk with all-over floral brocade work. A timeless heirloom piece for festive wardrobes.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 24000.0,
+      "salePrice": 22000.0,
+      "stock": 2,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Silk",
+        "primaryColor": "Emerald Green",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Festive, Mehendi",
+        "weight": "900g",
+        "careInstructions": "Dry clean only. Iron on reverse."
+      },
+      "tags": ["green saree", "banarasi", "brocade", "mehendi", "festive", "heirloom"],
+      "searchText": "emerald green banarasi brocade silk saree floral antique gold zari festive mehendi",
+      "embeddingText": "This opulent emerald green Banarasi brocade saree is a festival of craftsmanship. The heavy antique gold floral motifs completely cover the rich silk canvas, offering a deeply emotional connection to ancestral weaving traditions. Pair it with a simple gold choker to let the lush green drape be the star of your Mehendi or Diwali celebration.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1770838447142-fe777b6869d6",
+        "https://images.unsplash.com/photo-1770838447126-2e5f9207a6ab"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000004",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-02",
+      "name": "Golden Yellow Bridal Kanjeevaram",
+      "description": "Radiant golden yellow Kanjeevaram silk saree with a traditional red border. Auspicious and magnificent for the morning muhurtham.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 21000.0,
+      "salePrice": 21000.0,
+      "stock": 0,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Kanchipuram Silk",
+        "primaryColor": "Golden Yellow",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Muhurtham, Haldi",
+        "weight": "800g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["yellow saree", "kanjeevaram", "muhurtham", "bridal", "red border", "auspicious"],
+      "searchText": "golden yellow bridal kanjeevaram silk saree traditional red border muhurtham haldi",
+      "embeddingText": "The epitome of auspicious beginnings, this golden yellow Kanjeevaram features a thick, contrasting red border woven with pure gold threads. Traditionally worn for morning weddings and muhurthams, the vibrant colors invoke blessings and joy. The heavy silk provides a structured, elegant drape that looks breathtaking with temple jewelry.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1725219562144-18283c46b93c",
+        "https://images.unsplash.com/photo-1726068499121-ff12a5ddb148"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000005",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-03",
+      "name": "Hot Pink Banarasi Georgette Saree",
+      "description": "A vibrant hot pink Banarasi saree crafted in lightweight georgette. Combines traditional zari weaving with a modern, flowy drape.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 14000.0,
+      "salePrice": 12500.0,
+      "stock": 5,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Silk Georgette",
+        "primaryColor": "Hot Pink",
+        "zariType": "Silver Zari",
+        "occasion": "Sangeet, Cocktail",
+        "weight": "450g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["pink saree", "banarasi georgette", "sangeet", "lightweight", "silver zari"],
+      "searchText": "hot pink banarasi georgette saree flowy silver zari lightweight sangeet cocktail",
+      "embeddingText": "For those who love tradition but desire comfort, this hot pink Banarasi georgette saree is perfection. The fluid fabric clings gracefully to your curves while the silver zari bootis add festive sparkle. Ideal for dancing at a Sangeet, this saree is celebrated for being feather-light yet incredibly opulent.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1750008558677-c2d733e0ef83",
+        "https://images.unsplash.com/photo-1750008564980-46ad2279cd89"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000006",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-03",
+      "name": "Ivory & Gold Kanjeevaram Saree",
+      "description": "An ethereal ivory Kanjeevaram silk saree woven entirely with pure gold zari. A sophisticated choice for modern brides.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 25000.0,
+      "salePrice": 25000.0,
+      "stock": 10,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Kanchipuram Silk",
+        "primaryColor": "Ivory",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Day Wedding",
+        "weight": "850g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["ivory saree", "white silk", "gold zari", "kanjeevaram", "modern bride", "day wedding"],
+      "searchText": "ivory gold kanjeevaram silk saree pure gold zari modern bride day wedding",
+      "embeddingText": "Radiating celestial beauty, this ivory Kanjeevaram is heavily drenched in pure gold zari woven into traditional peacock and rudraksha motifs. It is the absolute dream for a modern day-wedding. The serene ivory paired with the dazzling gold creates a majestic glow, best complemented with contrasting emerald or ruby jewelry.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1704552973572-9deabbad9f82",
+        "https://images.unsplash.com/photo-1610313462169-3a5e5d5d3423"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000007",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-04",
+      "name": "Deep Purple Banarasi Silk Saree",
+      "description": "Rich deep purple Banarasi pure silk saree with diagonal gold zari stripes. Exudes power, royalty, and grace.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 16500.0,
+      "salePrice": 15000.0,
+      "stock": 6,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Silk",
+        "primaryColor": "Deep Purple",
+        "zariType": "Gold Zari",
+        "occasion": "Reception, Festive",
+        "weight": "700g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["purple saree", "banarasi", "stripes", "reception", "royal", "silk"],
+      "searchText": "deep purple banarasi pure silk saree diagonal gold zari stripes reception royal",
+      "embeddingText": "Step into the spotlight with this royal deep purple Banarasi silk. The modern diagonal gold zari stripes (Leheriya style) give a contemporary twist to the ancient weave, making you look taller and incredibly elegant. It's a statement piece that demands attention, perfect for a glamorous evening reception.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1698657169271-5b569ff3234e",
+        "https://images.unsplash.com/photo-1698657169585-0fce00d3ad9c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000008",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-CHA-01",
+      "name": "Pastel Pink Chanderi Silk Saree",
+      "description": "A delicate pastel pink Chanderi silk cotton saree with sheer elegance and silver floral motifs. Ideal for summer festivities.",
+      "category": "Sarees",
+      "subcategory": "Chanderi",
+      "price": 4500.0,
+      "salePrice": 3999.0,
+      "stock": 15,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Chanderi Silk Cotton",
+        "primaryColor": "Pastel Pink",
+        "zariType": "Silver Zari",
+        "occasion": "Daywear, Puja, Office",
+        "weight": "350g",
+        "careInstructions": "Dry clean first wash, mild hand wash subsequently."
+      },
+      "tags": ["pastel pink", "chanderi", "summer saree", "lightweight", "office wear", "sheer"],
+      "searchText": "pastel pink chanderi silk cotton saree sheer silver floral summer puja office",
+      "embeddingText": "Embrace the summer breeze with this ethereal pastel pink Chanderi. Known for its sheer texture and lightweight comfort, it features delicate silver floral bootis that catch the light beautifully. The perfect intersection of comfort and subtle luxury, making it an excellent choice for a morning Puja or elevated office wear.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1609748340756-aeb8223d6c64",
+        "https://images.unsplash.com/photo-1625591217716-ce6aac4d0f9c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000009",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-LIN-01",
+      "name": "Breathable White Organic Linen Saree",
+      "description": "Pure organic linen saree in pristine white with a solid silver zari border. The ultimate in breathable, sophisticated daily wear.",
+      "category": "Sarees",
+      "subcategory": "Linen",
+      "price": 3200.0,
+      "salePrice": 2800.0,
+      "stock": 20,
+      "lowStockThreshold": 5,
+      "attributes": {
+        "fabric": "100% Organic Linen",
+        "primaryColor": "White",
+        "zariType": "Silver Zari Border",
+        "occasion": "Corporate, Casual, Day Out",
+        "weight": "400g",
+        "careInstructions": "Hand wash cold. Starch if crispness is desired."
+      },
+      "tags": ["white saree", "linen", "organic", "corporate", "breathable", "daily wear"],
+      "searchText": "breathable white organic linen saree silver zari border corporate casual breathable",
+      "embeddingText": "Redefine power dressing with this pristine white organic linen saree. As breathable as it gets, the fabric softens with every wash while maintaining a sophisticated, structured drape. Finished with a sleek silver zari border, it projects understated elegance, making it the top pick for corporate professionals who refuse to compromise on comfort.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1742676971851-0c44e894fc1a",
+        "https://images.unsplash.com/photo-1742677052550-33422264e846"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000010",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-CHA-02",
+      "name": "Mint Green Chanderi Handloom Saree",
+      "description": "Refreshing mint green Chanderi with delicate gold coin motifs. Brings a cool, aesthetic charm to any gathering.",
+      "category": "Sarees",
+      "subcategory": "Chanderi",
+      "price": 5200.0,
+      "salePrice": 4800.0,
+      "stock": 4,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Chanderi Silk",
+        "primaryColor": "Mint Green",
+        "zariType": "Gold Zari",
+        "occasion": "Brunch, Festive",
+        "weight": "300g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["mint green", "chanderi", "handloom", "gold coin motifs", "brunch"],
+      "searchText": "mint green chanderi handloom silk saree gold coin motifs brunch festive lightweight",
+      "embeddingText": "Cool mint green meets warm gold in this stunning Chanderi handloom saree. The sheer body is dotted with traditional gold coin (ashrafi) motifs, giving it a playful yet royal touch. Weighing barely 300 grams, it allows you to float through Sunday brunches and festive lunches with effortless grace.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1695296495697-0f145e33d53a",
+        "https://images.unsplash.com/photo-1698657169427-a24d79024f14"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000011",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-LIN-02",
+      "name": "Indigo Blue Block Print Linen Saree",
+      "description": "Hand-block printed pure linen saree in deep indigo blue. Features traditional Bagru geometric patterns.",
+      "category": "Sarees",
+      "subcategory": "Linen",
+      "price": 3800.0,
+      "salePrice": 3800.0,
+      "stock": 0,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Linen",
+        "primaryColor": "Indigo Blue",
+        "zariType": "None",
+        "occasion": "Workwear, Casual",
+        "weight": "420g",
+        "careInstructions": "Hand wash separately in cold water. Indigo may bleed initially."
+      },
+      "tags": ["indigo", "linen", "block print", "bagru", "workwear", "blue saree"],
+      "searchText": "indigo blue block print linen saree bagru geometric patterns workwear casual",
+      "embeddingText": "Celebrate earthy artistry with this deep indigo linen saree. Hand-block printed by artisans using traditional Bagru techniques, it features striking white geometric patterns against a rich blue background. The soft linen provides incredible all-day comfort, creating a bold, artistic look for teachers, writers, and creative professionals.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1693990151888-5755cbe89922",
+        "https://images.unsplash.com/photo-1693990151888-5755cbe89922"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000012",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-CHA-03",
+      "name": "Lemon Yellow Chanderi Tissue Saree",
+      "description": "Bright lemon yellow Chanderi tissue saree with a subtle metallic sheen. A gorgeous, lightweight choice for Haldi ceremonies.",
+      "category": "Sarees",
+      "subcategory": "Chanderi",
+      "price": 6000.0,
+      "salePrice": 5500.0,
+      "stock": 8,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Chanderi Tissue",
+        "primaryColor": "Lemon Yellow",
+        "zariType": "Gold Tissue Woven",
+        "occasion": "Haldi, Day Festive",
+        "weight": "380g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["yellow saree", "chanderi tissue", "haldi", "metallic sheen", "lightweight"],
+      "searchText": "lemon yellow chanderi tissue saree metallic sheen haldi day festive lightweight",
+      "embeddingText": "Glow like the morning sun in this lemon yellow Chanderi tissue saree. The metallic threads woven into the fabric give it a permanent, ethereal sheen that catches every ray of light. It's the ultimate hassle-free, lightweight option for a Haldi ceremony, allowing you to look perfectly festive without being weighed down.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1779384504328-3392afb5bd25",
+        "https://images.unsplash.com/photo-1779384504328-3392afb5bd25"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000013",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-LIN-03",
+      "name": "Charcoal Grey Pure Linen Saree",
+      "description": "Sophisticated charcoal grey linen saree enhanced with contrasting dull red pom-poms on the pallu. Modern, chic, and minimal.",
+      "category": "Sarees",
+      "subcategory": "Linen",
+      "price": 3500.0,
+      "salePrice": 3100.0,
+      "stock": 11,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Linen",
+        "primaryColor": "Charcoal Grey",
+        "zariType": "None",
+        "occasion": "Corporate, Evening Casual",
+        "weight": "400g",
+        "careInstructions": "Hand wash cold."
+      },
+      "tags": ["grey saree", "linen", "pom poms", "minimal", "modern", "chic"],
+      "searchText": "charcoal grey pure linen saree dull red pom-poms modern chic minimal corporate",
+      "embeddingText": "Master the art of minimalism with this charcoal grey pure linen saree. The dark, moody grey fabric offers a striking, modern silhouette, playfully contrasted by quirky red pom-poms lining the pallu. It drapes like a dream and speaks volumes of your chic, understated aesthetic—perfect for evening gallery walks or corporate events.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1565539433134-f41a89c7346e",
+        "https://images.unsplash.com/photo-1784558822794-b9c8034b5bae"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000014",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-CHA-04",
+      "name": "Peach Chanderi Saree with Scalloped Border",
+      "description": "Soft peach Chanderi saree featuring a trendy scalloped gold border. Feminine, romantic, and perfectly on-trend.",
+      "category": "Sarees",
+      "subcategory": "Chanderi",
+      "price": 5800.0,
+      "salePrice": 5200.0,
+      "stock": 7,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Chanderi Silk",
+        "primaryColor": "Peach",
+        "zariType": "Gold Zari Scallops",
+        "occasion": "Brunch, Engagement Guest",
+        "weight": "320g",
+        "careInstructions": "Dry clean only."
+      },
+      "tags": ["peach saree", "chanderi", "scalloped border", "romantic", "trendy"],
+      "searchText": "peach chanderi saree scalloped gold border feminine romantic trendy brunch engagement",
+      "embeddingText": "Exude romantic charm in this soft peach Chanderi silk saree. The highlight is its meticulously embroidered scalloped gold border, elevating the classic Chanderi to a modern designer level. The sheer, airy fabric drapes sensually, making it a highly sought-after piece for daytime engagement parties or elegant high-tea events.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1693987651617-f48af8ef9d29",
+        "https://images.unsplash.com/photo-1571075353240-3414f61a6f9f"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000015",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-KUN-01",
+      "name": "Regal Kundan Bridal Choker Set",
+      "description": "A breathtaking Kundan choker set encrusted with semi-precious uncut diamonds, rubies, and pearls. Includes matching heavy earrings and maang tikka.",
+      "category": "Jewelry",
+      "subcategory": "Kundan",
+      "price": 12500.0,
+      "salePrice": 11000.0,
+      "stock": 3,
+      "lowStockThreshold": 1,
+      "attributes": {
+        "material": "Brass Alloy, Gold Plated",
+        "stones": "Kundan, Pearls, Synthetic Rubies",
+        "setIncludes": "Necklace, Earrings, Maang Tikka",
+        "occasion": "Bridal, Wedding"
+      },
+      "tags": ["kundan", "choker", "bridal jewelry", "pearls", "rubies", "heavy set"],
+      "searchText": "regal kundan bridal choker set uncut diamonds rubies pearls necklace earrings maang tikka",
+      "embeddingText": "Complete your bridal transformation with this regal Kundan choker set. Featuring a thick band of intricate Kundan work interspersed with deep red rubies and cascading pearl drops, it hugs the neck luxuriously. The matching oversized earrings and maang tikka perfectly balance a traditional red Banarasi or Lehengas, adding unmatched royal grandeur.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000016",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-POL-01",
+      "name": "Rajputana Polki Long Necklace",
+      "description": "A traditional Rani Haar featuring brilliant Polki stones and meenakari enameling on the reverse. A magnificent heritage piece.",
+      "category": "Jewelry",
+      "subcategory": "Polki",
+      "price": 15000.0,
+      "salePrice": 15000.0,
+      "stock": 1,
+      "lowStockThreshold": 1,
+      "attributes": {
+        "material": "Copper Alloy, Gold Plated",
+        "stones": "Foil-backed Polki, Emerald drops",
+        "setIncludes": "Long Necklace, Stud Earrings",
+        "occasion": "Bridal, Reception"
+      },
+      "tags": ["polki", "rani haar", "long necklace", "rajputana", "meenakari", "heritage"],
+      "searchText": "rajputana polki long necklace rani haar meenakari enameling heritage bridal reception",
+      "embeddingText": "Channel the queens of yesteryear with this spectacular Rajputana Polki Rani Haar. Designed to sit low on the chest, it features large foil-backed Polki stones that mimic the dazzle of raw diamonds, finished with lush green emerald drops. The exquisite Meenakari enameling on the back proves its high-quality artisan craftsmanship. Ideal for layering.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000017",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-KUN-02",
+      "name": "Oversized Kundan Jhumka Earrings",
+      "description": "Classic oversized Kundan Jhumkas with delicate pearl sahara (ear chains). A statement piece that elevates any ethnic outfit instantly.",
+      "category": "Jewelry",
+      "subcategory": "Kundan",
+      "price": 4500.0,
+      "salePrice": 3900.0,
+      "stock": 15,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "material": "Brass Alloy, Gold Plated",
+        "stones": "Kundan, Pearls",
+        "setIncludes": "Pair of Earrings with Ear Chains",
+        "occasion": "Festive, Sangeet, Wedding Guest"
+      },
+      "tags": ["kundan", "jhumka", "earrings", "pearl sahara", "statement jewelry"],
+      "searchText": "oversized kundan jhumka earrings pearl sahara ear chains statement ethnic outfit festive",
+      "embeddingText": "Make a bold statement with these oversized Kundan Jhumkas. Intricately detailed and remarkably lightweight for their size, they feature beautiful pearl ear chains (saharas) that pin into the hair, distributing the weight and adding a vintage, regal touch. Pair these with a simple Chanderi saree to let the earrings steal the show.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
+        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000018",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-POL-02",
+      "name": "Crescent Moon Polki Maang Tikka",
+      "description": "An elegant oversized crescent-shaped maang tikka adorned with bright Polki stones and dangling pearls.",
+      "category": "Jewelry",
+      "subcategory": "Polki",
+      "price": 2500.0,
+      "salePrice": 2200.0,
+      "stock": 8,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "material": "Mixed Alloy, Gold Plated",
+        "stones": "Polki, Pearls",
+        "setIncludes": "Single Maang Tikka",
+        "occasion": "Festive, Sangeet, Mehendi"
+      },
+      "tags": ["polki", "maang tikka", "crescent moon", "headpiece", "mehendi", "bridal"],
+      "searchText": "crescent moon polki maang tikka oversized headpiece dangling pearls festive sangeet",
+      "embeddingText": "Frame your face beautifully with this oversized crescent moon Polki Maang Tikka. The classic Chandbali design is updated with brilliant Polki stones that rest perfectly on the forehead, finishing with gentle pearl drops. It brings an instant festive glam to Mehendi or Sangeet looks, requiring minimal other jewelry to stand out.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000019",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-TEM-01",
+      "name": "Heritage Gold Temple Choker",
+      "description": "Authentic South Indian Temple Jewelry choker featuring Goddess Lakshmi motifs. Handcrafted in pure silver with 24k gold plating.",
+      "category": "Jewelry",
+      "subcategory": "Temple Jewelry",
+      "price": 14000.0,
+      "salePrice": 14000.0,
+      "stock": 0,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "material": "92.5 Sterling Silver, 24k Gold Plated",
+        "stones": "Kemp stones (Red and Green)",
+        "setIncludes": "Choker Necklace",
+        "occasion": "Bridal, Traditional Puja"
+      },
+      "tags": ["temple jewelry", "choker", "lakshmi motif", "south indian", "kemp stones", "silver base"],
+      "searchText": "heritage gold temple choker goddess lakshmi motifs pure silver 24k gold plating bridal puja",
+      "embeddingText": "Rooted deep in South Indian traditions, this Heritage Temple Choker features an intricately carved Goddess Lakshmi sitting atop a lotus. Crafted from pure 92.5 silver and dipped in 24k gold, it is studded with authentic red and green Kemp stones. It is the absolute essential pairing for a Kanjeevaram silk saree on a wedding day.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000020",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "JEW-KUN-03",
+      "name": "Layered Emerald Kundan Haar",
+      "description": "A luxurious multi-layered necklace strung with high-grade synthetic emerald beads and Kundan side-brooches.",
+      "category": "Jewelry",
+      "subcategory": "Kundan",
+      "price": 8500.0,
+      "salePrice": 7800.0,
+      "stock": 4,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "material": "Brass Alloy, Gold Plated",
+        "stones": "Synthetic Emerald Beads, Kundan",
+        "setIncludes": "Layered Necklace",
+        "occasion": "Reception, Party Wear"
+      },
+      "tags": ["kundan", "layered necklace", "emerald beads", "green jewelry", "party wear"],
+      "searchText": "layered emerald kundan haar multi-layered necklace synthetic emerald beads side-brooches reception",
+      "embeddingText": "Drape yourself in luxury with this Layered Emerald Kundan Haar. Five strings of smooth, rich green synthetic emerald beads are held together by dazzling floral Kundan brooches on the sides. This necklace adds an incredible pop of color against ivory, black, or gold outfits, giving off a highly sophisticated, royal maharani vibe.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
+        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+      ]
+    }
+  ],
+  "customers": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000001",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999901",
+      "customerName": "Priya Sharma",
+      "preferredCategories": ["Sarees", "Jewelry"],
+      "preferredAttributes": {
+        "colors": ["Red", "Gold", "Crimson"],
+        "fabrics": ["Pure Silk", "Banarasi"],
+        "occasions": ["Bridal", "Wedding"]
+      },
+      "budgetRange": { "min": 15000, "max": 35000 },
+      "totalOrders": 1,
+      "totalSpent": 30500.0,
+      "averageOrderValue": 30500.0,
+      "isRepeatCustomer": false,
+      "preferredLanguage": "hinglish",
+      "totalMessages": 24,
+      "notes": "The Impulsive Bridal Shopper. High budget, fast decider, loves red silk and matching Kundan sets."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000002",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999902",
+      "customerName": "Neha Gupta",
+      "preferredCategories": ["Sarees"],
+      "preferredAttributes": {
+        "colors": ["Pastel Pink", "Mint Green"],
+        "fabrics": ["Chanderi", "Linen"],
+        "occasions": ["Daywear", "Casual"]
+      },
+      "budgetRange": { "min": 1500, "max": 4000 },
+      "totalOrders": 0,
+      "totalSpent": 0.0,
+      "averageOrderValue": 0.0,
+      "isRepeatCustomer": false,
+      "preferredLanguage": "en",
+      "totalMessages": 18,
+      "notes": "The Bargain Hunter. Strict budget <₹4k. Always asks for discounts or free shipping."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000003",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999903",
+      "customerName": "Ananya Reddy",
+      "preferredCategories": ["Sarees"],
+      "preferredAttributes": {
+        "colors": ["Royal Blue", "Ivory", "Emerald"],
+        "fabrics": ["Kanchipuram Silk", "Handloom"],
+        "occasions": ["Festive", "Reception"]
+      },
+      "budgetRange": { "min": 15000, "max": 25000 },
+      "totalOrders": 12,
+      "totalSpent": 245000.0,
+      "averageOrderValue": 20416.0,
+      "isRepeatCustomer": true,
+      "preferredLanguage": "en",
+      "totalMessages": 156,
+      "notes": "The Repeat VIP. Appreciates handloom authenticity, high AOV, prefers South Indian silks."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000004",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999904",
+      "customerName": "Rahul Verma",
+      "preferredCategories": ["Jewelry"],
+      "preferredAttributes": {
+        "colors": ["Gold", "Pearl"],
+        "fabrics": [],
+        "occasions": ["Gifting", "Anniversary"]
+      },
+      "budgetRange": { "min": 3000, "max": 8000 },
+      "totalOrders": 3,
+      "totalSpent": 15200.0,
+      "averageOrderValue": 5066.0,
+      "isRepeatCustomer": true,
+      "preferredLanguage": "hi",
+      "totalMessages": 45,
+      "notes": "The Gifting Son/Husband. Often buys jewelry sets for wife/mother. Needs reassurance on quality."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000005",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999905",
+      "customerName": "Smriti Iyer",
+      "preferredCategories": ["Sarees"],
+      "preferredAttributes": {
+        "colors": ["Indigo", "Charcoal Grey", "White"],
+        "fabrics": ["Pure Linen", "Organic"],
+        "occasions": ["Corporate", "Workwear"]
+      },
+      "budgetRange": { "min": 2500, "max": 5000 },
+      "totalOrders": 4,
+      "totalSpent": 13500.0,
+      "averageOrderValue": 3375.0,
+      "isRepeatCustomer": true,
+      "preferredLanguage": "en",
+      "totalMessages": 32,
+      "notes": "The Corporate Professional. Wants daily-wear breathable linen & cotton. Prefers minimal designs."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000006",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999906",
+      "customerName": "Kavya Singh",
+      "preferredCategories": ["Sarees", "Jewelry"],
+      "preferredAttributes": {
+        "colors": ["Yellow", "Peach"],
+        "fabrics": ["Chanderi Tissue"],
+        "occasions": ["Haldi", "Day Festive"]
+      },
+      "budgetRange": { "min": 5000, "max": 10000 },
+      "totalOrders": 1,
+      "totalSpent": 7700.0,
+      "averageOrderValue": 7700.0,
+      "isRepeatCustomer": false,
+      "preferredLanguage": "hinglish",
+      "totalMessages": 12,
+      "notes": "Bridesmaid looking for Haldi/Sangeet outfits. Loves bright, lightweight sarees."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000007",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999907",
+      "customerName": "Ritu Patel",
+      "preferredCategories": ["Jewelry"],
+      "preferredAttributes": {
+        "colors": ["Green", "Gold"],
+        "fabrics": [],
+        "occasions": ["Party Wear"]
+      },
+      "budgetRange": { "min": 6000, "max": 12000 },
+      "totalOrders": 2,
+      "totalSpent": 15600.0,
+      "averageOrderValue": 7800.0,
+      "isRepeatCustomer": true,
+      "preferredLanguage": "en",
+      "totalMessages": 21,
+      "notes": "Jewelry enthusiast, loves layered sets and emeralds."
+    },
+    {
+      "id": "c0000000-0000-4000-8000-000000000008",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999908",
+      "customerName": "Sneha Rao",
+      "preferredCategories": ["Sarees"],
+      "preferredAttributes": {
+        "colors": ["Mint Green", "Deep Purple"],
+        "fabrics": ["Chanderi Silk"],
+        "occasions": ["Brunch", "Festive"]
+      },
+      "budgetRange": { "min": 4000, "max": 8000 },
+      "totalOrders": 2,
+      "totalSpent": 9600.0,
+      "averageOrderValue": 4800.0,
+      "isRepeatCustomer": true,
+      "preferredLanguage": "en",
+      "totalMessages": 28,
+      "notes": "Appreciates sheer fabrics and subtle zari work."
+    }
+  ],
+  "conversations": [
+    {
+      "conversationId": "b0000000-0000-4000-8000-000000000001",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999901",
+      "stage": "CART_ACTIVE",
+      "messages": [
+        {
+          "role": "customer",
+          "content": "Hi, I am looking for a bridal saree for my wedding next month. Something in pure red Banarasi silk.",
+          "messageType": "text",
+          "intent": "product_discovery",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Namaste Priya! ✨ Huge congratulations on your upcoming wedding! 💍 A pure red Banarasi is an absolute classic. Let me show you our finest heirloom piece.\n\n*Crimson Red Bridal Banarasi Silk Saree*\nIt features intricate pure gold zari work. Absolutely stunning for the big day! Would you like to see some pictures? 📸",
+          "messageType": "text",
+          "intent": "product_recommendation",
+          "actionTaken": "queried_db_for_banarasi_red",
+          "latencyMs": 1450
+        },
+        {
+          "role": "customer",
+          "content": "Yes please, show me.",
+          "messageType": "text",
+          "intent": "request_images",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Here is the beautiful drape! 🌹\n[Image: https://images.unsplash.com/photo-1610189014522-83531fb78964]\n\nNotice the heavy gold zari on the pallu. It's priced at *₹19,500* (currently on a festive discount from ₹22,500). How do you feel about this design?",
+          "messageType": "text",
+          "intent": "send_product_details",
+          "actionTaken": "sent_images_and_price",
+          "latencyMs": 2100
+        },
+        {
+          "role": "customer",
+          "content": "Wow that is gorgeous! 😍 Is the zari pure? Will it turn black?",
+          "messageType": "text",
+          "intent": "product_inquiry",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "I completely understand your concern! Yes, it features authentic gold-plated zari. As long as you dry clean it and store it in the breathable cotton cloth we provide, it will never lose its shine. It's truly a piece you can pass down to the next generation! heirloom ✨",
+          "messageType": "text",
+          "intent": "address_objection",
+          "actionTaken": "explained_care_instructions",
+          "latencyMs": 1850
+        },
+        {
+          "role": "customer",
+          "content": "Okay I love it. I want to buy this. Do you have matching jewelry?",
+          "messageType": "text",
+          "intent": "add_to_cart_and_cross_sell",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Wonderful choice! 🎉 I'll keep the saree aside for you.\n\nFor jewelry, to perfectly match that rich red and gold, I highly recommend our *Regal Kundan Bridal Choker Set*. It has beautiful uncut diamonds, rubies, and pearls. Shall I add both to your cart? 🛒",
+          "messageType": "text",
+          "intent": "cross_sell_recommendation",
+          "actionTaken": "queried_jewelry_kundan",
+          "latencyMs": 2300
+        },
+        {
+          "role": "customer",
+          "content": "What is the price of the choker?",
+          "messageType": "text",
+          "intent": "price_inquiry",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "The Kundan Bridal Choker Set is *₹11,000*. It includes the heavy choker, matching earrings, and a maang tikka. \n\nSo your total would be:\n• Saree: *₹19,500*\n• Jewelry: *₹11,000*\n*Total: ₹30,500*\n\nShall I generate the checkout link? 🔗",
+          "messageType": "text",
+          "intent": "cart_summary",
+          "actionTaken": "calculated_total",
+          "latencyMs": 1600
+        },
+        {
+          "role": "customer",
+          "content": "Yes, please send the link.",
+          "messageType": "text",
+          "intent": "confirm_checkout",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Here is your secure checkout link: https://auraluxe.in/checkout/390x81 \n\nYou can pay via UPI, Card, or Netbanking. Let me know once you've completed the payment so I can fast-track your shipping! 🚚✨",
+          "messageType": "text",
+          "intent": "send_checkout_link",
+          "actionTaken": "generated_payment_link",
+          "latencyMs": 1350
+        }
+      ]
+    },
+    {
+      "conversationId": "b0000000-0000-4000-8000-000000000002",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999902",
+      "stage": "BROWSING",
+      "messages": [
+        {
+          "role": "customer",
+          "content": "Hi, what is the price of the Pastel Pink Chanderi saree? SAR-CHA-01",
+          "messageType": "text",
+          "intent": "price_inquiry",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Namaste Neha! 🌸 The *Pastel Pink Chanderi Silk Saree* (SAR-CHA-01) is currently priced at *₹3,999* (discounted from ₹4,500). \n\nIt's incredibly lightweight and perfect for the summer heat! Shall I help you place an order?",
+          "messageType": "text",
+          "intent": "product_details",
+          "actionTaken": "fetched_product_info",
+          "latencyMs": 1200
+        },
+        {
+          "role": "customer",
+          "content": "That is a bit expensive for me. My budget is 3000. Can you give a discount?",
+          "messageType": "text",
+          "intent": "negotiation",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "I completely understand staying within a budget, Neha! 💖 Because this saree is an authentic handloom piece crafted over 5 days by artisans in Chanderi, our margins are quite tight to ensure fair wages.\n\nHowever, I can offer you *Free Premium Shipping* (worth ₹150) if you prepay via UPI today! Would that work for you?",
+          "messageType": "text",
+          "intent": "objection_handling",
+          "actionTaken": "applied_free_shipping_offer",
+          "latencyMs": 2400
+        },
+        {
+          "role": "customer",
+          "content": "Do you have any other pink sarees under 3000?",
+          "messageType": "text",
+          "intent": "alternative_search",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Let me check our collection for you! 🔎\n\nCurrently, our pure Chanderi and Linen collections start at ₹3,100. For instance, the Charcoal Grey Pure Linen is ₹3,100, but I see you prefer Pink!\n\nIf you really love the Pastel Pink Chanderi, I can create a special one-time code for 5% off, bringing it to *₹3,799*. It's truly a beautiful piece you'll wear for years.",
+          "messageType": "text",
+          "intent": "offer_discount",
+          "actionTaken": "searched_inventory_under_3000",
+          "latencyMs": 3100
+        },
+        {
+          "role": "customer",
+          "content": "Okay, 3799 is fine. But with free shipping?",
+          "messageType": "text",
+          "intent": "conditional_acceptance",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Yes! Deal! 🤝 *₹3,799* total with Free Shipping included. \n\nI have created your custom cart here: https://auraluxe.in/checkout/custom-neha-992\n\nYou can complete the purchase via UPI or Cards. Let me know if you need any help! ✨",
+          "messageType": "text",
+          "intent": "close_sale",
+          "actionTaken": "generated_custom_cart",
+          "latencyMs": 1500
+        }
+      ]
+    },
+    {
+      "conversationId": "b0000000-0000-4000-8000-000000000003",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "customerPhone": "+919999999905",
+      "stage": "CHECKOUT_CONFIRM",
+      "messages": [
+        {
+          "role": "customer",
+          "content": "Hello Meera. I want to order the Indigo Blue Block Print Linen Saree (SAR-LIN-02). Do you have it in stock?",
+          "messageType": "text",
+          "intent": "stock_check",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Namaste Smriti! Welcome back. 🌿 Let me quickly check the inventory for the Indigo Blue Linen Saree for you...",
+          "messageType": "text",
+          "intent": "acknowledge_and_check",
+          "actionTaken": "queried_inventory",
+          "latencyMs": 1100
+        },
+        {
+          "role": "assistant",
+          "content": "Oh no, I'm so sorry! 😔 The Indigo Blue (SAR-LIN-02) just sold out yesterday. Because it's hand-block printed in Bagru, it will take about 3 weeks to restock.\n\nHowever, if you're looking for elegant corporate wear, we have the *Charcoal Grey Pure Linen Saree* (SAR-LIN-03) in stock! It has gorgeous dull red pom-poms on the pallu and is priced at *₹3,100*. Would you like to see a picture?",
+          "messageType": "text",
+          "intent": "out_of_stock_recommend_alternative",
+          "actionTaken": "fetched_alternative_linen",
+          "latencyMs": 2800
+        },
+        {
+          "role": "customer",
+          "content": "Oh that's a shame. Yes, show me the grey one.",
+          "messageType": "text",
+          "intent": "view_alternative",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "[Image: https://images.unsplash.com/photo-1620011504930-b3b44b2f293b]\n\nHere it is! It's pure organic linen, incredibly breathable, and drapes beautifully for long office hours. The subtle red detailing makes it very chic. ✨",
+          "messageType": "text",
+          "intent": "send_alternative_image",
+          "actionTaken": "sent_image",
+          "latencyMs": 1400
+        },
+        {
+          "role": "customer",
+          "content": "Actually, this looks very smart. I'll take it. Same delivery address as my last order in Bangalore.",
+          "messageType": "text",
+          "intent": "confirm_order",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Wonderful choice! 🏢 It really is a smart, powerful look.\n\nI have your address on file: Indiranagar, Bengaluru, 560038.\nYour total is *₹3,100*. Since you're a returning VIP customer, shipping is on us! 🎁\n\nHere is your payment link: https://auraluxe.in/checkout/vip-smriti-332",
+          "messageType": "text",
+          "intent": "send_checkout",
+          "actionTaken": "fetched_customer_address",
+          "latencyMs": 2100
+        },
+        {
+          "role": "customer",
+          "content": "Paid via UPI just now. Thanks Meera.",
+          "messageType": "text",
+          "intent": "confirm_payment",
+          "actionTaken": "none",
+          "latencyMs": 0
+        },
+        {
+          "role": "assistant",
+          "content": "Payment received! ✅ Thank you, Smriti. Your order is confirmed and will be shipped via Delhivery tomorrow. I'll share the tracking number right here once it's dispatched. Have a beautiful day! 🌸",
+          "messageType": "text",
+          "intent": "order_confirmation",
+          "actionTaken": "updated_order_status_to_confirmed",
+          "latencyMs": 1300
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "id": "e0000000-0000-4000-8000-000000000001",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8001",
+      "customerPhone": "+919999999903",
+      "customerName": "Ananya Reddy",
+      "subtotal": 18000.0,
+      "discount": 0.0,
+      "shippingCharge": 0.0,
+      "total": 18000.0,
+      "paymentMethod": "RAZORPAY_ONLINE",
+      "deliveryAddress": {
+        "name": "Ananya Reddy",
+        "flat": "Apt 402, Sea View Residency",
+        "street": "Carter Road, Bandra West",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "pincode": "400050",
+        "landmark": "Near Joggers Park"
+      },
+      "status": "DELIVERED",
+      "statusHistory": [
+        { "status": "PAYMENT_CONFIRMED", "timestamp": "2026-10-10T10:30:00Z", "note": "Paid via Razorpay" },
+        { "status": "SHIPPED", "timestamp": "2026-10-11T14:00:00Z", "note": "Shipped via BlueDart" },
+        { "status": "DELIVERED", "timestamp": "2026-10-13T16:45:00Z", "note": "Signed by recipient" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000002",
+          "productCode": "SAR-KAN-01",
+          "productName": "Royal Blue Kanjeevaram Silk Saree",
+          "quantity": 1,
+          "priceAtOrder": 18000.0,
+          "totalAtOrder": 18000.0
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000002",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8002",
+      "customerPhone": "+919999999904",
+      "customerName": "Rahul Verma",
+      "subtotal": 3900.0,
+      "discount": 0.0,
+      "shippingCharge": 150.0,
+      "total": 4050.0,
+      "paymentMethod": "UPI_MANUAL",
+      "deliveryAddress": {
+        "name": "Rahul Verma",
+        "flat": "Villa 12, Palm Meadows",
+        "street": "Whitefield",
+        "city": "Bengaluru",
+        "state": "Karnataka",
+        "pincode": "560066",
+        "landmark": "Opposite Forum Mall"
+      },
+      "status": "DELIVERED",
+      "statusHistory": [
+        { "status": "PAYMENT_CONFIRMED", "timestamp": "2026-10-05T09:15:00Z", "note": "Paid via GPay" },
+        { "status": "SHIPPED", "timestamp": "2026-10-06T11:20:00Z", "note": "Shipped via Delhivery" },
+        { "status": "DELIVERED", "timestamp": "2026-10-09T13:10:00Z", "note": "Delivered to security" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000017",
+          "productCode": "JEW-KUN-02",
+          "productName": "Oversized Kundan Jhumka Earrings",
+          "quantity": 1,
+          "priceAtOrder": 3900.0,
+          "totalAtOrder": 3900.0
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000003",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8003",
+      "customerPhone": "+919999999901",
+      "customerName": "Priya Sharma",
+      "subtotal": 30500.0,
+      "discount": 0.0,
+      "shippingCharge": 0.0,
+      "total": 30500.0,
+      "paymentMethod": "RAZORPAY_ONLINE",
+      "deliveryAddress": {
+        "name": "Priya Sharma",
+        "flat": "House No 45, Sector 15",
+        "street": "MG Road",
+        "city": "Delhi",
+        "state": "Delhi",
+        "pincode": "110015",
+        "landmark": "Near Metro Station"
+      },
+      "status": "SHIPPED",
+      "statusHistory": [
+        { "status": "PAYMENT_CONFIRMED", "timestamp": "2026-10-16T14:20:00Z", "note": "Payment successful" },
+        { "status": "SHIPPED", "timestamp": "2026-10-17T10:00:00Z", "note": "Tracking: DELHIVERY-98127391" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000001",
+          "productCode": "SAR-BAN-01",
+          "productName": "Crimson Red Bridal Banarasi Silk Saree",
+          "quantity": 1,
+          "priceAtOrder": 19500.0,
+          "totalAtOrder": 19500.0
+        },
+        {
+          "productId": "a0000000-0000-4000-8000-000000000015",
+          "productCode": "JEW-KUN-01",
+          "productName": "Regal Kundan Bridal Choker Set",
+          "quantity": 1,
+          "priceAtOrder": 11000.0,
+          "totalAtOrder": 11000.0
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000004",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8004",
+      "customerPhone": "+919999999905",
+      "customerName": "Smriti Iyer",
+      "subtotal": 3100.0,
+      "discount": 0.0,
+      "shippingCharge": 0.0,
+      "total": 3100.0,
+      "paymentMethod": "UPI_MANUAL",
+      "deliveryAddress": {
+        "name": "Smriti Iyer",
+        "flat": "Flat 303, Prestige Acropolis",
+        "street": "Koramangala 8th Block",
+        "city": "Bengaluru",
+        "state": "Karnataka",
+        "pincode": "560095",
+        "landmark": "Near Forum Mall"
+      },
+      "status": "SHIPPED",
+      "statusHistory": [
+        { "status": "PAYMENT_CONFIRMED", "timestamp": "2026-10-16T18:45:00Z", "note": "UPI Payment Confirmed" },
+        { "status": "SHIPPED", "timestamp": "2026-10-17T11:30:00Z", "note": "Tracking: DELHIVERY-98127455" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000013",
+          "productCode": "SAR-LIN-03",
+          "productName": "Charcoal Grey Pure Linen Saree",
+          "quantity": 1,
+          "priceAtOrder": 3100.0,
+          "totalAtOrder": 3100.0
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000005",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8005",
+      "customerPhone": "+919999999908",
+      "customerName": "Sneha Rao",
+      "subtotal": 4800.0,
+      "discount": 0.0,
+      "shippingCharge": 150.0,
+      "total": 4950.0,
+      "paymentMethod": "COD",
+      "deliveryAddress": {
+        "name": "Sneha Rao",
+        "flat": "Plot 10, Banjara Hills",
+        "street": "Road No 12",
+        "city": "Hyderabad",
+        "state": "Telangana",
+        "pincode": "500034",
+        "landmark": "Near KBR Park"
+      },
+      "status": "PAYMENT_CONFIRMED",
+      "statusHistory": [
+        { "status": "PAYMENT_CONFIRMED", "timestamp": "2026-10-17T15:10:00Z", "note": "Order placed with COD" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000010",
+          "productCode": "SAR-CHA-02",
+          "productName": "Mint Green Chanderi Handloom Saree",
+          "quantity": 1,
+          "priceAtOrder": 4800.0,
+          "totalAtOrder": 4800.0
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000006",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "orderNumber": "ORD-2026-8006",
+      "customerPhone": "+919999999902",
+      "customerName": "Neha Gupta",
+      "subtotal": 3999.0,
+      "discount": 200.0,
+      "shippingCharge": 0.0,
+      "total": 3799.0,
+      "paymentMethod": "UPI_MANUAL",
+      "deliveryAddress": {
+        "name": "Neha Gupta",
+        "flat": "B-404, Sunrise Apartments",
+        "street": "OMR Road",
+        "city": "Chennai",
+        "state": "Tamil Nadu",
+        "pincode": "600119",
+        "landmark": "Near IT Park"
+      },
+      "status": "PENDING_PAYMENT",
+      "statusHistory": [
+        { "status": "PENDING_PAYMENT", "timestamp": "2026-10-17T17:45:00Z", "note": "Waiting for UPI confirmation" }
+      ],
+      "items": [
+        {
+          "productId": "a0000000-0000-4000-8000-000000000008",
+          "productCode": "SAR-CHA-01",
+          "productName": "Pastel Pink Chanderi Silk Saree",
+          "quantity": 1,
+          "priceAtOrder": 3999.0,
+          "totalAtOrder": 3999.0
+        }
+      ]
+    }
+  ],
+  "inventoryReservations": [
+    {
+      "id": "f0000000-0000-4000-8000-000000000001",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "productId": "a0000000-0000-4000-8000-000000000008",
+      "customerPhone": "+919999999902",
+      "quantity": 1,
+      "reservedAt": "2026-10-17T17:45:00Z",
+      "expiresAt": "2026-10-17T18:00:00Z",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "f0000000-0000-4000-8000-000000000002",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "productId": "a0000000-0000-4000-8000-000000000010",
+      "customerPhone": "+919999999908",
+      "quantity": 1,
+      "reservedAt": "2026-10-17T15:05:00Z",
+      "expiresAt": "2026-10-17T15:20:00Z",
+      "status": "COMMITTED"
+    }
+  ]
+}
