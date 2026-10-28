@@ -1,0 +1,460 @@
+import { generateText } from 'ai';
+import { LLMResponseEnvelopeSchema, LLMActionSchema, type LLMResponseEnvelope } from '@wcos/types';
+import { ModelFactory, type ModelTier, type ProviderKeys, type TenantAiConfig } from './providers.js';
+import { buildSystemPrompt, type PromptContext } from './prompts/system-prompt.js';
+import {
+  isAddressConfirmation,
+  isAddressChangeRequest,
+  extractDeliveryAddress,
+} from './address-matcher.js';
+
+export { type TenantAiConfig } from './providers.js';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AIGatewayRequest {
+  context: PromptContext;
+  history: ChatMessage[];
+  currentMessage: string;
+  tier?: ModelTier;
+  keys?: ProviderKeys;
+  /** Per-tenant AI model config from Tenant.aiConfig — overrides env defaults when present */
+  tenantAiConfig?: TenantAiConfig;
+}
+
+export interface AIGatewayResult {
+  response: LLMResponseEnvelope;
+  telemetry: {
+    modelName: string;
+    provider: string;
+    durationMs: number;
+    usage?: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+    };
+  };
+}
+
+export class AIGateway {
+  private factory: ModelFactory;
+
+  constructor(keys?: ProviderKeys) {
+    this.factory = new ModelFactory(keys);
+  }
+
+  /**
+   * Executes multi-provider LLM inference with automatic provider failover and structured schema validation.
+   */
+  async processMessage(req: AIGatewayRequest): Promise<AIGatewayResult> {
+    const tier = req.tier || 'fast';
+    const models = this.factory.getFallbackChain(tier, req.tenantAiConfig);
+    const systemPrompt = buildSystemPrompt(req.context);
+
+    const messages = [
+      ...req.history.map((h) => ({
+        role: h.role,
+        content: h.content,
+      })),
+      {
+        role: 'user' as const,
+        content: req.currentMessage,
+      },
+    ];
+
+    let lastError: Error | null = null;
+
+    // Loop through fallback models in order
+    for (const configuredModel of models) {
+      const startTime = Date.now();
+      try {
+        const result = await generateText({
+          model: configuredModel.model,
+          system: systemPrompt,
+          messages,
+          temperature: 0.2,
+        });
+
+        const durationMs = Date.now() - startTime;
+        const rawUsage: any = result.usage;
+
+        const rawText = result.text || '';
+        // Strip out any <think> tags or reasoning blocks
+        let cleaned = rawText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+        // Extract JSON object if surrounded by markdown code fences or conversational text
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleaned = jsonMatch[0];
+        }
+
+        let parsed: any;
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch {
+          // If JSON.parse fails, construct a graceful fallback envelope
+          parsed = {
+            message: cleaned || rawText || 'How can I assist you with our collection today? ✨',
+            stage: req.context.currentStage || 'BROWSING',
+            intent: 'general_query',
+            action: { action: 'NONE', reply: '' },
+          };
+        }
+
+        // 1. Structure normalization: handle LLM putting action as string or at root
+        if (typeof parsed.action === 'string') {
+          const actionType = parsed.action.toUpperCase();
+          parsed.action = {
+            action: actionType,
+            productCode: parsed.productCode || parsed.code || '',
+            quantity: Number(parsed.quantity) || 1,
+            query: parsed.query || '',
+            reply: parsed.reply || parsed.message || '',
+            reason: parsed.reason || 'CUSTOMER_REQUEST',
+          };
+        } else if (!parsed.action && parsed.actionType) {
+          parsed.action = {
+            action: String(parsed.actionType).toUpperCase(),
+            productCode: parsed.productCode || parsed.code || '',
+            quantity: Number(parsed.quantity) || 1,
+            query: parsed.query || '',
+            reply: parsed.reply || parsed.message || '',
+          };
+        } else if (!parsed.action || typeof parsed.action !== 'object') {
+          parsed.action = { action: 'NONE', reply: '' };
+        }
+
+        // 2. Normalize action object fields
+        if (parsed.action && typeof parsed.action === 'object') {
+          if (parsed.action.action) {
+            parsed.action.action = String(parsed.action.action).toUpperCase().trim();
+          }
+          if (!parsed.action.reply) {
+            parsed.action.reply = parsed.message || '';
+          }
+          if (parsed.action.quantity !== undefined) {
+            parsed.action.quantity = Number(parsed.action.quantity) || 1;
+          }
+          if (parsed.action.productCode) {
+            parsed.action.productCode = String(parsed.action.productCode).toUpperCase().trim();
+          }
+        }
+
+        // 2B. Strip any hallucinated payment URLs generated by the LLM (e.g. pay.AuraLuxeBoutique.in)
+        const fakeUrlRegex = /https?:\/\/(?:pay\.[a-z0-9.-]+|[a-z0-9.-]*auraluxe[a-z0-9.-]*|[a-z0-9.-]*alb-[a-z0-9.-]*)[^\s]*/gi;
+        if (typeof parsed.message === 'string') {
+          parsed.message = parsed.message.replace(fakeUrlRegex, '').trim();
+        }
+        if (parsed.action && typeof parsed.action.reply === 'string') {
+          parsed.action.reply = parsed.action.reply.replace(fakeUrlRegex, '').trim();
+        }
+
+        // 3. Safety Net / Promotion Heuristics for Cart, Checkout, Address, and Security
+        const currentMsgLower = (req.currentMessage || '').toLowerCase();
+        const assistantMsgLower = (parsed.message || '').toLowerCase();
+
+        // 3A. Executive / Owner Impersonation Defense
+        const isImpersonatingExecutive =
+          /\b(i am the ceo|i'm the ceo|i am the owner|i'm the owner|i own this shop|i am aditi sharma|give me owner access|give me admin access|as the owner|as the ceo)\b/i.test(
+            currentMsgLower
+          );
+
+        if (isImpersonatingExecutive) {
+          parsed.action = { action: 'NONE', reply: '' };
+          parsed.intent = 'OFF_TOPIC';
+          parsed.message = `Namaste! ✨ Thank you for reaching out. As the sales assistant for ${req.context.storeName}, I assist all our valued patrons with discovering and ordering our handcrafted collections. How may I assist you with our catalog today?`;
+        }
+
+        // ⚠️ 3A-FRAUD: Hard-block any payment claim when stage is AWAITING_PAYMENT
+        // This is a critical fraud guard — the LLM must NEVER confirm an order
+        // based on a customer text message. Only gateway webhooks may do that.
+        const isAwaitingPayment = req.context.currentStage === 'AWAITING_PAYMENT';
+        const isPaymentClaim = /\b(i paid|paid|payment done|payment sent|done payment|i have paid|already paid|payment complete|sent the money|transferred|upi done|payment successful|i did the payment|payment kar diya|payment ho gaya|bhej diya|transfer kar diya)\b/i.test(currentMsgLower);
+
+        if (isAwaitingPayment && isPaymentClaim) {
+          parsed.action = { action: 'NONE', reply: '' };
+          parsed.intent = 'PAYMENT_CLAIM_BLOCKED';
+          parsed.message = `Thank you for letting us know! 🔒 Our system automatically verifies all payments from Razorpay/PhonePe — we'll notify you *instantly* once the payment is confirmed (usually within 1–2 minutes).\n\nIf you're facing any issues completing the payment, please reply *HELP* and we'll assist you right away! ✨`;
+        }
+
+        // Customer asking for payment link or reporting broken link (English, Kannada, Hinglish):
+        // Ensure action is INITIATE_CHECKOUT so the execution engine generates or resends the real payment link!
+        const isPaymentLinkRequest =
+          /\b(phonepe|phone\s*pe|google\s*pay|gpay|paytm|upi)\b.*\b(link|kalsu|kodu|send|share|pay|bhejo)\b/i.test(currentMsgLower) ||
+          /\b(link)\b.*\b(kalsu|kodu|bhejo|work\s*agthilla|not\s*working|broken|invalid|bere|another|new|send|share|give|resend)\b/i.test(currentMsgLower) ||
+          /\b(resend|send|give|generate|share|fresh|new|another|get|where|where's|where is)\b.*\b(payment|link|checkout|upi|qr|phonepe|razorpay|pay)\b/i.test(currentMsgLower) ||
+          /\b(link|pay|payment|checkout|pay now)\b/i.test(currentMsgLower.trim()) ||
+          /\b(link.*not.*working|link.*expired|link.*failed|didn't receive.*link|haven't received.*link|send.*again|resend.*now|pay.*now)\b/i.test(currentMsgLower);
+
+        if (isAwaitingPayment && isPaymentLinkRequest) {
+          parsed.action = {
+            action: 'INITIATE_CHECKOUT',
+            reply: parsed.message || 'Preparing your secure payment link...',
+          };
+          parsed.intent = 'CHECKOUT';
+        } else if (
+          isAwaitingPayment &&
+          parsed.action &&
+          parsed.action.action !== 'NONE' &&
+          parsed.action.action !== 'REQUEST_HUMAN_HANDOFF' &&
+          parsed.action.action !== 'INITIATE_CHECKOUT' &&
+          parsed.action.action !== 'ADD_TO_CART' &&
+          parsed.action.action !== 'REMOVE_FROM_CART' &&
+          parsed.action.action !== 'CLEAR_CART'
+        ) {
+          console.warn(`[AIGateway] Blocked LLM action "${parsed.action.action}" in AWAITING_PAYMENT stage`);
+          parsed.action = { action: 'NONE', reply: parsed.message || '' };
+          parsed.intent = 'AWAITING_PAYMENT_GUARD';
+        }
+
+        // 3B. Check if user or assistant indicates adding to cart (including mid-checkout inquiries)
+        const userWantsAddToCart =
+          /\b(add.*cart|add.*to.*my.*cart|put.*cart|buy.*this|purchase.*this|add.*saree|add.*piece|i'll take|ill take|i will take|add.*also|add.*too|include.*this|add.*second|add.*one.*more)\b/i.test(
+            currentMsgLower
+          );
+        const assistantSaysAdded =
+          /\b(has been added to your cart|added.*to your cart|added.*to the cart|re-added.*to.*cart|added.*to.*cart)\b/i.test(
+            assistantMsgLower
+          );
+
+        const codeRegex = /\b([A-Za-z]{3}-[A-Za-z]{3}-\d{2})\b/i;
+
+        if (
+          !isImpersonatingExecutive &&
+          (userWantsAddToCart || assistantSaysAdded) &&
+          (!parsed.action || parsed.action.action === 'NONE' || !parsed.action.productCode)
+        ) {
+          const userCodeMatch = req.currentMessage.match(codeRegex);
+          const assistantCodeMatch = (parsed.message || '').match(codeRegex);
+
+          let resolvedCode: string | null = null;
+          if (userCodeMatch) {
+            resolvedCode = userCodeMatch[1]!.toUpperCase();
+          } else if (assistantCodeMatch) {
+            resolvedCode = assistantCodeMatch[1]!.toUpperCase();
+          } else {
+            for (let i = req.history.length - 1; i >= 0; i--) {
+              const histMatch = req.history[i]!.content.match(codeRegex);
+              if (histMatch) {
+                resolvedCode = histMatch[1]!.toUpperCase();
+                break;
+              }
+            }
+          }
+
+          if (!resolvedCode && req.context.catalogContext) {
+            const catMatch = req.context.catalogContext.match(codeRegex);
+            if (catMatch) {
+              resolvedCode = catMatch[1]!.toUpperCase();
+            }
+          }
+
+          if (resolvedCode) {
+            parsed.action = {
+              action: 'ADD_TO_CART',
+              productCode: resolvedCode,
+              quantity: 1,
+              reply: parsed.message || `Added *${resolvedCode}* to your cart! ✨`,
+            };
+            parsed.intent = 'CART_ADD';
+            parsed.stage = 'CART_ACTIVE';
+          }
+        }
+
+        // 3C. Check if user indicates removing/deleting from cart
+        const userWantsRemove =
+          /\b(remove.*from.*cart|delete.*from.*cart|remove.*saree|delete.*saree|take.*off.*cart|remove.*item|delete.*item|remove|delete)\b/i.test(
+            currentMsgLower
+          );
+        const userWantsClear = /\b(clear.*cart|empty.*cart|remove.*all)\b/i.test(currentMsgLower);
+
+        if (!isImpersonatingExecutive && userWantsClear) {
+          parsed.action = {
+            action: 'CLEAR_CART',
+            reply: 'Your cart has been cleared.',
+          };
+          parsed.intent = 'CART_CLEAR';
+          parsed.stage = 'BROWSING';
+        } else if (
+          !isImpersonatingExecutive &&
+          userWantsRemove &&
+          (!parsed.action || parsed.action.action === 'NONE')
+        ) {
+          const userCodeMatch = req.currentMessage.match(codeRegex);
+          let targetCode = userCodeMatch ? userCodeMatch[1]!.toUpperCase() : null;
+
+          if (!targetCode && req.context.cartSummary && req.context.cartSummary.items.length === 1) {
+            const onlyItem = req.context.cartSummary.items[0];
+            targetCode = (onlyItem as any)?.productCode || null;
+          }
+
+          if (targetCode) {
+            parsed.action = {
+              action: 'REMOVE_FROM_CART',
+              productCode: targetCode,
+              reply: `Removed *${targetCode}* from your cart.`,
+            };
+            parsed.intent = 'CART_REMOVE';
+          }
+        }
+
+        // 3D. Address Change Request Handling
+        const wantsChangeAddress = isAddressChangeRequest(req.currentMessage);
+        if (!isImpersonatingExecutive && wantsChangeAddress) {
+          parsed.action = {
+            action: 'REQUEST_DELIVERY_ADDRESS',
+            reply: 'Please provide your updated delivery address (Full Name, House/Street, City, Pincode): 📍',
+          };
+          parsed.intent = 'CHANGE_ADDRESS';
+          parsed.stage = 'CHECKOUT_ADDRESS';
+        }
+
+        // 3E. Providing New Delivery Address Handling
+        const extractedAddress = !wantsChangeAddress
+          ? extractDeliveryAddress(req.currentMessage, req.context.customerName)
+          : null;
+
+        if (!isImpersonatingExecutive && extractedAddress) {
+          parsed.action = {
+            action: 'CONFIRM_DELIVERY_ADDRESS',
+            confirmed: true,
+            deliveryAddress: extractedAddress,
+            reply: parsed.message || 'Thank you for providing your delivery address! 📍',
+          };
+          parsed.intent = 'ADDRESS_COLLECTED';
+          parsed.stage =
+            req.context.cartSummary && req.context.cartSummary.itemsCount > 0
+              ? 'AWAITING_PAYMENT'
+              : req.context.currentStage || 'BROWSING';
+        }
+
+        // 3F. Address Confirmation Handling (e.g. Returning customer confirms address on file)
+        const lastAssistantMsg =
+          [...req.history].reverse().find((m) => m.role === 'assistant')?.content || '';
+        const isConfirmingAddress =
+          !wantsChangeAddress &&
+          !extractedAddress &&
+          isAddressConfirmation(req.currentMessage, req.context.currentStage, lastAssistantMsg);
+
+        if (!isImpersonatingExecutive && isConfirmingAddress) {
+          const targetAddress =
+            req.context.currentDeliveryAddress ||
+            req.context.savedDeliveryAddress;
+
+          parsed.action = {
+            action: 'INITIATE_CHECKOUT',
+            deliveryAddress: targetAddress,
+            reply: parsed.message || 'Generating your secure payment link...',
+          };
+          parsed.intent = 'CHECKOUT';
+          parsed.stage = 'AWAITING_PAYMENT';
+        }
+
+        // 3G. General Checkout Intent Handling
+        const isCheckoutIntent =
+          isPaymentLinkRequest ||
+          /^(checkout|pay|proceed|place order|confirm|complete order)\b/i.test(currentMsgLower.trim()) ||
+          /(proceed to pay|proceed to checkout|initiate checkout|checkout now|send.*payment.*link|resend.*payment.*link|resend.*link|resend.*payment|pay now|complete order)/i.test(
+            currentMsgLower
+          );
+
+        if (
+          !isImpersonatingExecutive &&
+          !wantsChangeAddress &&
+          !extractedAddress &&
+          !isConfirmingAddress &&
+          isCheckoutIntent &&
+          (!parsed.action || parsed.action.action === 'NONE')
+        ) {
+          if (req.context.pendingOrderSummary) {
+            parsed.action = {
+              action: 'INITIATE_CHECKOUT',
+              reply: parsed.message || 'Preparing your secure payment link...',
+            };
+            parsed.intent = 'CHECKOUT';
+            parsed.stage = 'AWAITING_PAYMENT';
+          } else if (req.context.isReturningCustomer && req.context.savedDeliveryAddress) {
+            // Returning customer with address on file:
+            // If already confirmed in this session OR customer explicitly asked for payment link, proceed directly to INITIATE_CHECKOUT!
+            if (req.context.addressConfirmed || isPaymentLinkRequest) {
+              parsed.action = {
+                action: 'INITIATE_CHECKOUT',
+                deliveryAddress: req.context.currentDeliveryAddress || req.context.savedDeliveryAddress,
+                reply: parsed.message || 'Preparing your secure payment link...',
+              };
+              parsed.intent = 'CHECKOUT';
+              parsed.stage = 'AWAITING_PAYMENT';
+            } else {
+              // Ask for confirmation of previous delivery details with bill breakdown
+              parsed.action = {
+                action: 'REQUEST_DELIVERY_ADDRESS',
+                reply: parsed.message || 'Please confirm your delivery address on file...',
+              };
+              parsed.intent = 'CHECKOUT';
+              parsed.stage = 'CHECKOUT_CONFIRM';
+            }
+          } else {
+            // New customer with no address on file: ask for delivery details
+            parsed.action = {
+              action: 'REQUEST_DELIVERY_ADDRESS',
+              reply: parsed.message || 'To get your order delivered safely, please share your delivery address: 📍',
+            };
+            parsed.intent = 'CHECKOUT';
+            parsed.stage = 'CHECKOUT_ADDRESS';
+          }
+        }
+
+
+        // 4. Validate or salvage envelope
+        let response: LLMResponseEnvelope;
+        const envelopeResult = LLMResponseEnvelopeSchema.safeParse(parsed);
+        if (envelopeResult.success) {
+          response = envelopeResult.data;
+        } else {
+          console.warn('[AIGateway] safeParse warning, salvaging envelope:', envelopeResult.error.format());
+          const actionResult = LLMActionSchema.safeParse(parsed.action);
+          response = {
+            message: typeof parsed.message === 'string' && parsed.message.trim()
+              ? parsed.message.trim()
+              : 'How can I assist you with our collection today? ✨',
+            stage: typeof parsed.stage === 'string' ? parsed.stage : (req.context.currentStage || 'BROWSING'),
+            intent: typeof parsed.intent === 'string' ? parsed.intent : 'general_query',
+            action: actionResult.success ? actionResult.data : { action: 'NONE', reply: '' },
+            customerMemoryUpdate: parsed.customerMemoryUpdate,
+          };
+        }
+
+        return {
+          response,
+          telemetry: {
+            modelName: configuredModel.name,
+            provider: configuredModel.provider,
+            durationMs,
+            usage: rawUsage
+              ? {
+                  promptTokens: rawUsage.promptTokens ?? rawUsage.inputTokens,
+                  completionTokens: rawUsage.completionTokens ?? rawUsage.outputTokens,
+                  totalTokens: rawUsage.totalTokens,
+                }
+              : undefined,
+          },
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(
+          `[AIGateway] Model ${configuredModel.name} (${configuredModel.provider}) failed: ${err.message}. Attempting next fallback model...`
+        );
+      }
+    }
+
+    throw new Error(
+      `[AIGateway] All models in fallback chain failed! Last error: ${lastError?.message}`
+    );
+  }
+}
+
+export const aiGateway = new AIGateway();
+

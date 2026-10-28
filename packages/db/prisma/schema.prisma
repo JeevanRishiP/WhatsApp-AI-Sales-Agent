@@ -1,0 +1,410 @@
+// ╔═══════════════════════════════════════════════════════════════╗
+// ║  WhatsApp Commerce OS — Prisma Schema                        ║
+// ║                                                               ║
+// ║  Key design decisions:                                        ║
+// ║  • Multi-tenant with tenantId on every table                  ║
+// ║  • pgvector extension for semantic product search             ║
+// ║  • Outbox table for guaranteed event delivery                 ║
+// ║  • Audit log table (append-only, no deletes)                  ║
+// ║  • Price snapshots on order items (immutable)                 ║
+// ║  • Inventory reservation with TTL                             ║
+// ╚═══════════════════════════════════════════════════════════════╝
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector, pgcrypto]
+}
+
+// ─── Tenant ───────────────────────────────────────────────────
+
+model Tenant {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                  String       @db.VarChar(100)
+  ownerName             String       @db.VarChar(100)
+  ownerPhone            String       @db.VarChar(15)
+  ownerEmail            String       @db.VarChar(255)
+  passwordHash          String?      @db.VarChar(255)
+  lastLoginAt           DateTime?
+  businessCategory      String?      @db.VarChar(50)
+  status                TenantStatus @default(ONBOARDING)
+  plan                  TenantPlan   @default(FREE)
+  apiKey                String       @unique @default(dbgenerated("gen_random_uuid()"))
+  whatsappPhoneNumber   String?      @db.VarChar(20)
+  whatsappInstanceName  String       @db.VarChar(50)
+  evolutionInstanceId   String?      @db.VarChar(100)
+  razorpayAccountId     String?      @db.VarChar(100)
+  persona               Json         @default("{}")
+  aiConfig              Json         @default("{}")
+  monthlyMessageCount   Int          @default(0)
+  monthlyMessageLimit   Int          @default(1000)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  // Relations
+  products              Product[]
+  orders                Order[]
+  conversations         Conversation[]
+  customerMemories      CustomerMemory[]
+  promptVersions        PromptVersion[]
+  auditLogs             AuditLog[]
+  outboxEvents          OutboxEvent[]
+  rawWebhookEvents      RawWebhookEvent[]
+
+  @@index([whatsappInstanceName])
+  @@index([whatsappPhoneNumber])
+  @@index([status])
+}
+
+enum TenantStatus {
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+  CHURNED
+}
+
+enum TenantPlan {
+  FREE
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+// ─── Product ──────────────────────────────────────────────────
+
+model Product {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @db.Uuid
+  code              String        @db.VarChar(50)
+  name              String        @db.VarChar(200)
+  description       String?       @db.Text
+  category          String?       @db.VarChar(100)
+  subcategory       String?       @db.VarChar(100)
+  price             Decimal       @db.Decimal(12, 2)
+  salePrice         Decimal?      @db.Decimal(12, 2)
+  currency          String        @default("INR") @db.VarChar(3)
+  stock             Int           @default(0)
+  reserved          Int           @default(0)
+  lowStockThreshold Int           @default(5)
+  imageUrls         String[]
+  thumbnailUrl      String?
+  attributes        Json          @default("{}")
+  tags              String[]
+  status            ProductStatus @default(ACTIVE)
+  searchText        String?       @db.Text
+  embeddingText     String?       @db.Text
+  embedding         Unsupported("vector(1536)")?
+  weight            Decimal?      @db.Decimal(10, 2)
+  dimensions        Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  orderItems        OrderItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([tenantId, price])
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+// ─── Order ────────────────────────────────────────────────────
+
+model Order {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @db.Uuid
+  customerPhone     String        @db.VarChar(15)
+  customerName      String?       @db.VarChar(100)
+  orderNumber       String        @db.VarChar(30)
+  subtotal          Decimal       @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax               Decimal       @default(0) @db.Decimal(12, 2)
+  shippingCharge    Decimal       @default(0) @db.Decimal(12, 2)
+  total             Decimal       @db.Decimal(12, 2)
+  currency          String        @default("INR") @db.VarChar(3)
+  status            OrderStatus   @default(PENDING_PAYMENT)
+  paymentMethod     PaymentMethod?
+  razorpayOrderId   String?       @db.VarChar(100)
+  razorpayPaymentId String?       @db.VarChar(100)
+  reservationId     String?       @db.Uuid
+  deliveryAddress   Json?
+  trackingNumber    String?       @db.VarChar(100)
+  trackingUrl       String?
+  notes             String?       @db.VarChar(500)
+  internalNotes     String?       @db.VarChar(1000)
+  cancelReason      String?       @db.VarChar(500)
+  statusHistory     Json          @default("[]")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  items             OrderItem[]
+  reservation       InventoryReservation? @relation(fields: [reservationId], references: [id])
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, customerPhone])
+  @@index([tenantId, createdAt])
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUND_INITIATED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  RAZORPAY_ONLINE
+  PHONEPE_ONLINE
+  COD
+  UPI_MANUAL
+  BANK_TRANSFER
+}
+
+// ─── Order Item (immutable price snapshot) ────────────────────
+
+model OrderItem {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId         String   @db.Uuid
+  productId       String   @db.Uuid
+  productCode     String   @db.VarChar(50)
+  productName     String   @db.VarChar(200)
+  productImageUrl String?
+  quantity        Int
+  priceAtOrder    Decimal  @db.Decimal(12, 2)
+  discountAtOrder Decimal  @default(0) @db.Decimal(12, 2)
+  taxAtOrder      Decimal  @default(0) @db.Decimal(12, 2)
+  totalAtOrder    Decimal  @db.Decimal(12, 2)
+
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id])
+  product         Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+// ─── Inventory Reservation ────────────────────────────────────
+
+model InventoryReservation {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String            @db.Uuid
+  items       Json
+  expiresAt   DateTime
+  status      ReservationStatus @default(ACTIVE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  orders      Order[]
+
+  @@index([tenantId, status])
+  @@index([expiresAt])
+}
+
+enum ReservationStatus {
+  ACTIVE
+  COMMITTED
+  RELEASED
+  EXPIRED
+}
+
+// ─── Conversation ─────────────────────────────────────────────
+
+model Conversation {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String            @db.Uuid
+  customerPhone   String            @db.VarChar(15)
+  stage           ConversationStage @default(GREETING)
+  language        String            @default("en") @db.VarChar(20)
+  messageCount    Int               @default(0)
+  lastMessageAt   DateTime          @default(now())
+  lastIntent      String?           @db.VarChar(50)
+  cartId          String?           @db.Uuid
+  pendingOrderId  String?           @db.Uuid
+  handoffReason   String?           @db.VarChar(100)
+  handoffAssignedTo String?         @db.VarChar(100)
+  metadata        Json              @default("{}")
+  startedAt       DateTime          @default(now())
+  expiresAt       DateTime
+
+  // Relations
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  messages        Message[]
+
+  @@unique([tenantId, customerPhone])
+  @@index([tenantId, stage])
+  @@index([tenantId, lastMessageAt])
+}
+
+enum ConversationStage {
+  GREETING
+  BROWSING
+  CART_ACTIVE
+  CHECKOUT_ADDRESS
+  CHECKOUT_CONFIRM
+  AWAITING_PAYMENT
+  POST_ORDER
+  HUMAN_HANDOFF
+  IDLE
+}
+
+// ─── Message Log ──────────────────────────────────────────────
+
+model Message {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String    @db.Uuid
+  tenantId        String    @db.Uuid
+  role            String    @db.VarChar(20)   // "customer" | "assistant" | "system"
+  content         String    @db.Text
+  messageType     String    @default("text") @db.VarChar(30)
+  whatsappMessageId String? @db.VarChar(100)  // original WhatsApp message ID
+  intent          String?   @db.VarChar(50)
+  actionTaken     String?   @db.VarChar(50)
+  promptVersionId String?   @db.Uuid
+  llmModel        String?   @db.VarChar(50)
+  inputTokens     Int?
+  outputTokens    Int?
+  latencyMs       Int?
+  cost            Decimal?  @db.Decimal(10, 6)
+  metadata        Json      @default("{}")
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([whatsappMessageId])
+}
+
+// ─── Customer Memory ──────────────────────────────────────────
+
+model CustomerMemory {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String   @db.Uuid
+  customerPhone        String   @db.VarChar(15)
+  customerName         String?  @db.VarChar(100)
+  preferredCategories  String[]
+  preferredAttributes  Json     @default("{}")
+  budgetRange          Json     @default("{}")
+  totalOrders          Int      @default(0)
+  totalSpent           Decimal  @default(0) @db.Decimal(12, 2)
+  lastOrderDate        DateTime?
+  averageOrderValue    Decimal  @default(0) @db.Decimal(12, 2)
+  isRepeatCustomer     Boolean  @default(false)
+  preferredLanguage    String   @default("en") @db.VarChar(20)
+  totalMessages        Int      @default(0)
+  firstContactAt       DateTime @default(now())
+  lastContactAt        DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, customerPhone])
+  @@index([tenantId])
+}
+
+// ─── Prompt Version Management ────────────────────────────────
+
+model PromptVersion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  version     Int
+  isActive    Boolean  @default(false)
+  promptText  String   @db.Text
+  persona     Json     @default("{}")
+  createdBy   String   @db.VarChar(100)
+  testResults Json?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, version])
+  @@index([tenantId, isActive])
+}
+
+// ─── Outbox (guaranteed event delivery) ───────────────────────
+
+model OutboxEvent {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String       @db.Uuid
+  aggregateId   String       @db.VarChar(100)
+  aggregateType String       @db.VarChar(50)
+  eventType     String       @db.VarChar(50)
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([tenantId])
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+// ─── Raw Webhook Events (audit trail) ─────────────────────────
+
+model RawWebhookEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId   String   @db.VarChar(100)
+  tenantId    String?  @db.Uuid
+  source      String   @default("evolution") @db.VarChar(20)
+  payload     Json
+  receivedAt  DateTime @default(now())
+
+  // Relations
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([messageId])
+  @@index([tenantId, receivedAt])
+}
+
+// ─── Audit Log (append-only, no deletes) ──────────────────────
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String   @db.Uuid
+  actorId    String   @db.VarChar(100)
+  actorType  String   @db.VarChar(20) // "HUMAN" | "AI_AGENT" | "SYSTEM"
+  action     String   @db.VarChar(50)
+  resourceId String   @db.VarChar(100)
+  metadata   Json     @default("{}")
+  ipAddress  String?  @db.VarChar(45)
+  timestamp  DateTime @default(now())
+
+  // Relations
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, timestamp])
+  @@index([tenantId, action])
+  @@index([resourceId])
+}

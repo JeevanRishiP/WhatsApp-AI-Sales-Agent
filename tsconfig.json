@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@wcos/ai": ["packages/ai/src/index.ts"],
+      "@wcos/crypto": ["packages/crypto/src/index.ts"],
+      "@wcos/db": ["packages/db/src/index.ts"],
+      "@wcos/payments": ["packages/payments/src/index.ts"],
+      "@wcos/queue": ["packages/queue/src/index.ts"],
+      "@wcos/types": ["packages/types/src/index.ts"]
+    }
+  },
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/crypto" },
+    { "path": "./packages/db" },
+    { "path": "./packages/queue" },
+    { "path": "./packages/ai" },
+    { "path": "./packages/payments" },
+    { "path": "./apps/api" },
+    { "path": "./apps/worker" },
+    { "path": "./apps/dashboard" }
+  ],
+  "files": [],
+  "include": []
+}

@@ -1,0 +1,30 @@
+{
+  "name": "whatsapp-commerce-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WhatsApp Commerce OS — AI-powered sales agent for social sellers",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.11.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "start:all": "bash scripts/start-all.sh",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @wcos/db generate",
+    "db:push": "pnpm --filter @wcos/db push",
+    "db:migrate": "pnpm --filter @wcos/db migrate",
+    "db:studio": "pnpm --filter @wcos/db studio",
+    "db:seed": "pnpm --filter @wcos/db seed",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3"
+  }
+}

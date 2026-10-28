@@ -1,0 +1,33 @@
+{
+  "name": "@wcos/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "lint": "echo 'no linter configured yet'"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.82",
+    "@ai-sdk/google": "^4.0.99",
+    "@ai-sdk/openai": "^4.0.96",
+    "@wcos/types": "workspace:*",
+    "ai": "^7.0.143",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^5.7.0"
+  }
+}
