@@ -40,6 +40,10 @@ model Tenant {
   whatsappInstanceName  String       @db.VarChar(50)
   evolutionInstanceId   String?      @db.VarChar(100)
   razorpayAccountId     String?      @db.VarChar(100)
+  slug                  String?      @unique @db.VarChar(50)
+  customDomain          String?      @unique @db.VarChar(100)
+  storefrontTheme       Json         @default("{\"primaryColor\":\"#0C0C0C\",\"accentColor\":\"#C5A880\",\"fontStyle\":\"serif\"}")
+  storePolicies         Json         @default("{\"allowAddressChangeUntil\":\"SHIPPED\",\"allowCancelUntil\":\"PROCESSING\"}")
   persona               Json         @default("{}")
   aiConfig              Json         @default("{}")
   monthlyMessageCount   Int          @default(0)
@@ -50,12 +54,16 @@ model Tenant {
   // Relations
   products              Product[]
   orders                Order[]
+  customers             Customer[]
   conversations         Conversation[]
   customerMemories      CustomerMemory[]
   promptVersions        PromptVersion[]
   auditLogs             AuditLog[]
   outboxEvents          OutboxEvent[]
   rawWebhookEvents      RawWebhookEvent[]
+  staffUsers            StaffUser[]
+  dataRevisionLogs      DataRevisionLog[]
+  orderInternalNotes    OrderInternalNote[]
 
   @@index([whatsappInstanceName])
   @@index([whatsappPhoneNumber])
@@ -144,22 +152,33 @@ model Order {
   deliveryAddress   Json?
   trackingNumber    String?       @db.VarChar(100)
   trackingUrl       String?
+  courierPartner    String?       @db.VarChar(50)
+  awbCode           String?       @db.VarChar(100)
+  trackingEvents    Json          @default("[]")
+  dispatchedAt      DateTime?
   notes             String?       @db.VarChar(500)
   internalNotes     String?       @db.VarChar(1000)
   cancelReason      String?       @db.VarChar(500)
   statusHistory     Json          @default("[]")
+  customerId        String?       @db.Uuid
+  assignedStaffId   String?       @db.Uuid
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   // Relations
   tenant            Tenant        @relation(fields: [tenantId], references: [id])
+  customer          Customer?     @relation(fields: [customerId], references: [id])
+  assignedStaff     StaffUser?    @relation(fields: [assignedStaffId], references: [id])
   items             OrderItem[]
   reservation       InventoryReservation? @relation(fields: [reservationId], references: [id])
+  internalNoteList  OrderInternalNote[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId, status])
   @@index([tenantId, customerPhone])
   @@index([tenantId, createdAt])
+  @@index([tenantId, awbCode])
+  @@index([customerId])
 }
 
 enum OrderStatus {
@@ -325,6 +344,52 @@ model CustomerMemory {
   @@index([tenantId])
 }
 
+// ─── Customer Profile (Omnichannel Identity) ───────────────────
+
+model Customer {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String            @db.Uuid
+  phone            String            @db.VarChar(15)
+  name             String?           @db.VarChar(100)
+  email            String?           @db.VarChar(255)
+  vipTier          String            @default("STANDARD") @db.VarChar(20) // STANDARD, SILVER, GOLD, ROYAL
+  tags             String[]
+  riskStatus       String            @default("NORMAL") @db.VarChar(20)   // NORMAL, SUSPICIOUS, BLOCKED
+  defaultAddressId String?           @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  addresses        CustomerAddress[]
+  orders           Order[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+}
+
+// ─── Customer Address (Saved Delivery Locations) ───────────────
+
+model CustomerAddress {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId       String    @db.Uuid
+  label            String?   @db.VarChar(50) // e.g. "Home", "Work", "Studio"
+  recipientName    String    @db.VarChar(100)
+  phone            String    @db.VarChar(15)
+  line1            String    @db.VarChar(255)
+  line2            String?   @db.VarChar(255)
+  landmark         String?   @db.VarChar(100)
+  city             String    @db.VarChar(100)
+  state            String    @db.VarChar(100)
+  pincode          String    @db.VarChar(10)
+  isDefault        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
 // ─── Prompt Version Management ────────────────────────────────
 
 model PromptVersion {
@@ -407,4 +472,125 @@ model AuditLog {
   @@index([tenantId, timestamp])
   @@index([tenantId, action])
   @@index([resourceId])
+}
+
+// ─── Staff User (Team & RBAC) ─────────────────────────────────
+
+model StaffUser {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String      @db.Uuid
+  fullName     String      @db.VarChar(100)
+  email        String      @db.VarChar(255)
+  phone        String?     @db.VarChar(20)
+  passwordHash String      @db.VarChar(255)
+  role         StaffRole   @default(SUPPORT_CONCIERGE)
+  status       StaffStatus @default(ACTIVE)
+  avatarUrl    String?
+  lastLoginAt  DateTime?
+  lastActiveAt DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  revisions     DataRevisionLog[]
+  notes         OrderInternalNote[]
+  assignedOrders Order[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+  @@index([tenantId, role])
+}
+
+enum StaffRole {
+  OWNER
+  STORE_MANAGER
+  FULFILLMENT_LEAD
+  SUPPORT_CONCIERGE
+}
+
+enum StaffStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+  DEACTIVATED
+}
+
+// ─── Data Revision Log (Append-Only Immutable Change Ledger) ───
+
+model DataRevisionLog {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String          @db.Uuid
+  entityType     RevisionEntity
+  entityId       String          @db.Uuid
+  action         RevisionAction
+  
+  staffId        String?         @db.Uuid
+  staffName      String          @db.VarChar(100)
+  staffRole      StaffRole
+  actorType      ActorType       @default(STAFF)
+  
+  reason         String          @db.VarChar(500)
+  
+  beforeSnapshot Json            @default("{}")
+  afterSnapshot  Json            @default("{}")
+  diffSummary    Json            @default("{}")
+  
+  ipAddress      String?         @db.VarChar(45)
+  userAgent      String?         @db.VarChar(255)
+  timestamp      DateTime        @default(now())
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  staff          StaffUser?      @relation(fields: [staffId], references: [id])
+
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, staffId])
+  @@index([tenantId, timestamp(sort: Desc)])
+}
+
+enum RevisionEntity {
+  ORDER
+  CUSTOMER
+  CUSTOMER_ADDRESS
+  PRODUCT
+  POLICY
+}
+
+enum RevisionAction {
+  STATUS_CHANGE
+  ADDRESS_UPDATE
+  TRACKING_UPDATE
+  ITEM_MODIFIED
+  NOTE_ADDED
+  CUSTOMER_UPDATE
+  CUSTOMER_FLAGGED
+  ORDER_CANCELLED
+  REFUND_INITIATED
+  STOCK_ADJUSTMENT
+}
+
+enum ActorType {
+  STAFF
+  SYSTEM
+  AI_AGENT
+  CUSTOMER
+}
+
+// ─── Order Internal Note ──────────────────────────────────────
+
+model OrderInternalNote {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String    @db.Uuid
+  orderId   String    @db.Uuid
+  staffId   String    @db.Uuid
+  staffName String    @db.VarChar(100)
+  content   String    @db.Text
+  isPinned  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  order     Order     @relation(fields: [orderId], references: [id])
+  staff     StaffUser @relation(fields: [staffId], references: [id])
+
+  @@index([tenantId, orderId])
 }

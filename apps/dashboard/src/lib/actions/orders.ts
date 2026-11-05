@@ -8,12 +8,15 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId } from '@/lib/auth';
+import { getTenantId, getSession } from '@/lib/auth';
 import {
   updateOrderStatus,
   updateTracking,
   addInternalNote,
+  generateBillAndAwb,
 } from '@/lib/dal/orders';
+import { type CourierPartner } from '@/lib/shipping/logistics-service';
+import { prisma } from '@wcos/db';
 import { z } from 'zod';
 
 export interface OrderActionState {
@@ -35,6 +38,7 @@ const StatusUpdateSchema = z.object({
     'REFUNDED',
   ]),
   note: z.string().max(500).optional(),
+  reason: z.string().max(500).optional(),
 });
 
 export async function updateOrderStatusAction(
@@ -42,11 +46,12 @@ export async function updateOrderStatusAction(
   _prev: OrderActionState,
   formData: FormData
 ): Promise<OrderActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
 
   const parsed = StatusUpdateSchema.safeParse({
     status: formData.get('status'),
     note: formData.get('note') || undefined,
+    reason: formData.get('reason') || undefined,
   });
 
   if (!parsed.success) {
@@ -54,13 +59,25 @@ export async function updateOrderStatusAction(
   }
 
   try {
-    await updateOrderStatus(tenantId, orderId, parsed.data.status, parsed.data.note);
+    await updateOrderStatus(
+      session.tenantId,
+      orderId,
+      parsed.data.status,
+      parsed.data.note,
+      {
+        staffId: session.staffId,
+        staffName: session.staffName || 'Staff',
+        staffRole: session.role,
+        reason: parsed.data.reason || parsed.data.note || `Status transitioned to ${parsed.data.status}`,
+      }
+    );
   } catch (err: any) {
     return { error: err.message || 'Failed to update status' };
   }
 
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
+  revalidatePath('/audit');
   return { success: true };
 }
 
@@ -69,6 +86,8 @@ export async function updateOrderStatusAction(
 const TrackingSchema = z.object({
   trackingNumber: z.string().min(1, 'Tracking number is required').max(100),
   trackingUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
+  courier: z.string().optional(),
+  reason: z.string().max(500).optional(),
 });
 
 export async function updateTrackingAction(
@@ -76,11 +95,13 @@ export async function updateTrackingAction(
   _prev: OrderActionState,
   formData: FormData
 ): Promise<OrderActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
 
   const parsed = TrackingSchema.safeParse({
     trackingNumber: formData.get('trackingNumber'),
     trackingUrl: formData.get('trackingUrl') || undefined,
+    courier: formData.get('courier') || undefined,
+    reason: formData.get('reason') || undefined,
   });
 
   if (!parsed.success) {
@@ -89,16 +110,24 @@ export async function updateTrackingAction(
 
   try {
     await updateTracking(
-      tenantId,
+      session.tenantId,
       orderId,
       parsed.data.trackingNumber,
-      parsed.data.trackingUrl || undefined
+      parsed.data.trackingUrl || undefined,
+      {
+        staffId: session.staffId,
+        staffName: session.staffName || 'Fulfillment',
+        staffRole: session.role,
+        reason: parsed.data.reason || `Assigned tracking ${parsed.data.trackingNumber}`,
+      }
     );
   } catch (err: any) {
     return { error: err.message || 'Failed to update tracking' };
   }
 
+  revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
+  revalidatePath('/audit');
   return { success: true };
 }
 
@@ -109,7 +138,7 @@ export async function addNoteAction(
   _prev: OrderActionState,
   formData: FormData
 ): Promise<OrderActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
 
   const note = formData.get('note') as string;
   if (!note || note.trim().length === 0) {
@@ -121,16 +150,96 @@ export async function addNoteAction(
   }
 
   try {
-    await addInternalNote(tenantId, orderId, note.trim());
+    await addInternalNote(session.tenantId, orderId, note.trim(), {
+      staffId: session.staffId,
+      staffName: session.staffName || 'Staff',
+      staffRole: session.role,
+    });
   } catch (err: any) {
     return { error: err.message || 'Failed to add note' };
   }
 
+  revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
   return { success: true };
 }
 
 export const addInternalNoteAction = addNoteAction;
+
+// ─── Assign Staff to Order ────────────────────────────────────────
+
+export async function assignStaffAction(
+  orderId: string,
+  staffId: string
+): Promise<OrderActionState> {
+  const session = await getSession();
+
+  try {
+    const staff = await prisma.staffUser.findUnique({
+      where: { id: staffId },
+    });
+
+    await prisma.order.update({
+      where: { id: orderId, tenantId: session.tenantId },
+      data: { assignedStaffId: staffId },
+    });
+
+    await prisma.dataRevisionLog.create({
+      data: {
+        tenantId: session.tenantId,
+        entityType: 'ORDER',
+        entityId: orderId,
+        action: 'NOTE_ADDED',
+        staffId: session.staffId,
+        staffName: session.staffName || 'Staff',
+        staffRole: session.role,
+        reason: `Assigned order handling to ${staff?.fullName || staffId}`,
+        diffSummary: { assignedStaffId: { to: staffId } },
+      },
+    });
+  } catch (err: any) {
+    return { error: err.message || 'Failed to assign staff' };
+  }
+
+  revalidatePath('/orders');
+  revalidatePath('/audit');
+  return { success: true };
+}
+
+// ─── Generate Bill & Link Delivery Partner (DTDC / Delhivery) ─────
+
+export async function generateBillAndAwbAction(
+  orderId: string,
+  courierPartner: CourierPartner = 'DELHIVERY'
+): Promise<OrderActionState & { awbCode?: string; trackingUrl?: string }> {
+  const session = await getSession();
+
+  try {
+    const { consignment } = await generateBillAndAwb(
+      session.tenantId,
+      orderId,
+      courierPartner,
+      {
+        staffId: session.staffId,
+        staffName: session.staffName || 'Packing Staff',
+        staffRole: session.role,
+      }
+    );
+
+    revalidatePath('/orders');
+    revalidatePath(`/orders/${orderId}`);
+    revalidatePath(`/orders/${orderId}/bill`);
+    revalidatePath('/audit');
+
+    return {
+      success: true,
+      awbCode: consignment.awbCode,
+      trackingUrl: consignment.trackingUrl,
+    };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to generate bill and AWB' };
+  }
+}
 
 // ─── Simulate Razorpay Payment (Sandbox) ───────────────────────────
 

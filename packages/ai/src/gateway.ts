@@ -6,6 +6,7 @@ import {
   isAddressConfirmation,
   isAddressChangeRequest,
   extractDeliveryAddress,
+  matchSavedAddressSelection,
 } from './address-matcher.js';
 
 export { type TenantAiConfig } from './providers.js';
@@ -54,16 +55,42 @@ export class AIGateway {
     const models = this.factory.getFallbackChain(tier, req.tenantAiConfig);
     const systemPrompt = buildSystemPrompt(req.context);
 
-    const messages = [
-      ...req.history.map((h) => ({
-        role: h.role,
-        content: h.content,
-      })),
-      {
-        role: 'user' as const,
-        content: req.currentMessage,
-      },
-    ];
+    const rawFallbackUser = (req.currentMessage || '').trim() || '[Customer sent a message]';
+
+    // 1. Collect non-empty messages from history
+    const rawList: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    for (const h of req.history || []) {
+      const text = (h.content || '').trim();
+      if (text) {
+        rawList.push({ role: h.role, content: text });
+      }
+    }
+
+    // 2. Append the current message
+    rawList.push({
+      role: 'user',
+      content: rawFallbackUser,
+    });
+
+    // 3. Merge consecutive messages with the same role (crucial for Gemini turn alternation)
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    for (const item of rawList) {
+      if (messages.length > 0 && messages[messages.length - 1]!.role === item.role) {
+        messages[messages.length - 1]!.content += `\n${item.content}`;
+      } else {
+        messages.push({ role: item.role, content: item.content });
+      }
+    }
+
+    // 4. Ensure conversation starts with 'user' turn (required by Gemini / Anthropic)
+    if (messages.length > 0 && messages[0]!.role !== 'user') {
+      messages.unshift({ role: 'user', content: '[Conversation started]' });
+    }
+
+    // 5. Ensure conversation ends with 'user' turn (prevents "Requests ending with a model turn" error)
+    if (messages.length === 0 || messages[messages.length - 1]!.role !== 'user') {
+      messages.push({ role: 'user', content: rawFallbackUser });
+    }
 
     let lastError: Error | null = null;
 
@@ -331,7 +358,7 @@ export class AIGateway {
               : req.context.currentStage || 'BROWSING';
         }
 
-        // 3F. Address Confirmation Handling (e.g. Returning customer confirms address on file)
+        // 3F. Address Confirmation & Multi-Address Selection Handling
         const lastAssistantMsg =
           [...req.history].reverse().find((m) => m.role === 'assistant')?.content || '';
         const isConfirmingAddress =
@@ -339,15 +366,26 @@ export class AIGateway {
           !extractedAddress &&
           isAddressConfirmation(req.currentMessage, req.context.currentStage, lastAssistantMsg);
 
-        if (!isImpersonatingExecutive && isConfirmingAddress) {
+        // Check if customer explicitly chose one of their saved addresses (e.g. "1", "2", "home", "office")
+        const matchedSavedAddress =
+          req.context.savedDeliveryAddresses && req.context.savedDeliveryAddresses.length > 0
+            ? matchSavedAddressSelection(req.currentMessage, req.context.savedDeliveryAddresses)
+            : null;
+
+        if (!isImpersonatingExecutive && (isConfirmingAddress || matchedSavedAddress)) {
           const targetAddress =
+            matchedSavedAddress ||
             req.context.currentDeliveryAddress ||
+            req.context.savedDeliveryAddresses?.find((a) => a.isDefault) ||
+            req.context.savedDeliveryAddresses?.[0] ||
             req.context.savedDeliveryAddress;
 
           parsed.action = {
             action: 'INITIATE_CHECKOUT',
             deliveryAddress: targetAddress,
-            reply: parsed.message || 'Generating your secure payment link...',
+            reply: parsed.message || (matchedSavedAddress
+              ? `Delivering to *${matchedSavedAddress.label || 'your address'}* (${matchedSavedAddress.line1}, ${matchedSavedAddress.city})! Generating your secure payment link... ✨`
+              : 'Generating your secure payment link...'),
           };
           parsed.intent = 'CHECKOUT';
           parsed.stage = 'AWAITING_PAYMENT';

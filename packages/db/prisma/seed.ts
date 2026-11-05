@@ -24,6 +24,7 @@ async function main() {
       where: { apiKey: t.apiKey },
       update: {
         name: t.name,
+        slug: t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
         ownerName: t.ownerName,
         ownerPhone: t.ownerPhone,
         ownerEmail: t.ownerEmail,
@@ -38,6 +39,7 @@ async function main() {
       create: {
         id: t.id,
         name: t.name,
+        slug: t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
         ownerName: t.ownerName,
         ownerPhone: t.ownerPhone,
         ownerEmail: t.ownerEmail,

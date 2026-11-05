@@ -10,7 +10,7 @@
   "packageManager": "pnpm@10.11.0",
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --concurrency=20",
     "start:all": "bash scripts/start-all.sh",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",

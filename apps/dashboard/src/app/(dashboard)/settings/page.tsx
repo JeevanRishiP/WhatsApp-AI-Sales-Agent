@@ -37,6 +37,7 @@ export default async function SettingsPage() {
           whatsappPhoneNumber: (tenant as any).whatsappPhoneNumber || '',
           persona: tenant.persona as any,
           aiConfig: (tenant as any).aiConfig || {},
+          slug: tenant.slug || 'aura-luxe',
           monthlyMessageCount: tenant.monthlyMessageCount,
           monthlyMessageLimit: tenant.monthlyMessageLimit,
         }}

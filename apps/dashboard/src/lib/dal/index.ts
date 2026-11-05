@@ -9,3 +9,5 @@ export * from './customers';
 export * from './conversations';
 export * from './settings';
 export * from './payments';
+export * from './audit';
+export * from './team';

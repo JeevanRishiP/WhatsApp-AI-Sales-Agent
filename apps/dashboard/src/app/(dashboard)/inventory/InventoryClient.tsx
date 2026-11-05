@@ -9,6 +9,22 @@ import {
   updateStockAction,
   bulkImportProductsAction,
 } from '../../../lib/actions/products';
+import {
+  Search,
+  Download,
+  Upload,
+  Plus,
+  Edit2,
+  Trash2,
+  Package,
+  AlertTriangle,
+  CheckCircle2,
+  X,
+  FileText,
+  Tag,
+  ChevronRight,
+  Boxes,
+} from 'lucide-react';
 
 interface ProductItem {
   id: string;
@@ -163,11 +179,14 @@ export function InventoryClient({
       {/* Top Controls: Search and Filters */}
       <div className="card" style={{ marginBottom: '20px', padding: '16px 20px' }}>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ flex: '1 1 240px' }}>
+          <div className="search-input-wrapper" style={{ flex: '1 1 260px', maxWidth: 'none' }}>
+            <span className="search-icon">
+              <Search size={15} />
+            </span>
             <input
               type="text"
               placeholder="Search by name, SKU/code, or category..."
-              className="form-input"
+              className="search-input"
               defaultValue={currentSearch}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -206,14 +225,15 @@ export function InventoryClient({
             </select>
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={handleExportCSV}
               title="Export visible catalog items to CSV"
             >
-              📥 Export CSV
+              <Download size={14} />
+              <span>Export CSV</span>
             </button>
             <button
               type="button"
@@ -221,14 +241,16 @@ export function InventoryClient({
               onClick={() => setShowImportModal(true)}
               title="Bulk upload items via CSV"
             >
-              📤 Bulk Import
+              <Upload size={14} />
+              <span>Bulk Import</span>
             </button>
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => setShowAddModal(true)}
             >
-              + Add Product
+              <Plus size={15} />
+              <span>Add Product</span>
             </button>
           </div>
         </div>
@@ -236,32 +258,16 @@ export function InventoryClient({
 
       {/* Messages */}
       {errorMessage && (
-        <div
-          style={{
-            padding: '12px',
-            marginBottom: '16px',
-            background: 'var(--danger-bg)',
-            color: 'var(--danger)',
-            border: '1px solid var(--danger)',
-            borderRadius: 'var(--radius-sm)',
-          }}
-        >
-          {errorMessage}
+        <div className="alert alert-error">
+          <AlertTriangle size={16} />
+          <span>{errorMessage}</span>
         </div>
       )}
 
       {successMessage && (
-        <div
-          style={{
-            padding: '12px',
-            marginBottom: '16px',
-            background: 'var(--success-bg)',
-            color: 'var(--success)',
-            border: '1px solid var(--success)',
-            borderRadius: 'var(--radius-sm)',
-          }}
-        >
-          {successMessage}
+        <div className="alert alert-success">
+          <CheckCircle2 size={16} />
+          <span>{successMessage}</span>
         </div>
       )}
 
@@ -277,14 +283,16 @@ export function InventoryClient({
                 <th>Price</th>
                 <th>Stock Level</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    No products found matching criteria. Click "+ Add Product" to create your first item.
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '56px 20px', color: 'var(--text-muted)' }}>
+                    <Boxes size={28} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                    <p style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>No products found matching criteria</p>
+                    <p style={{ fontSize: '0.75rem', marginTop: '2px' }}>Click "+ Add Product" to create your first catalog item.</p>
                   </td>
                 </tr>
               ) : (
@@ -293,34 +301,44 @@ export function InventoryClient({
                   return (
                     <tr key={p.id}>
                       <td>
-                        <code style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                        <code
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            fontSize: '0.8125rem',
+                          }}
+                        >
                           {p.code}
                         </code>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 500 }}>{p.name}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{p.name}</div>
                         {p.description && (
                           <div
                             style={{
                               fontSize: '0.75rem',
                               color: 'var(--text-muted)',
-                              maxWidth: '300px',
+                              maxWidth: '320px',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
+                              marginTop: '2px',
                             }}
                           >
                             {p.description}
                           </div>
                         )}
                       </td>
-                      <td>{p.category || '—'}</td>
                       <td>
-                        <div style={{ fontWeight: 600 }}>
+                        <span className="badge badge-neutral">{p.category || 'General'}</span>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                           ₹{Number(p.price).toLocaleString('en-IN')}
                         </div>
                         {p.salePrice && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--success)' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
                             Sale: ₹{Number(p.salePrice).toLocaleString('en-IN')}
                           </div>
                         )}
@@ -341,7 +359,7 @@ export function InventoryClient({
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                            style={{ padding: '3px 7px', fontSize: '0.75rem' }}
                             onClick={() => {
                               setStockEditProduct(p);
                               setStockValue(p.stock);
@@ -349,12 +367,13 @@ export function InventoryClient({
                             }}
                             title="Quick Adjust Stock"
                           >
-                            ✏️
+                            <Edit2 size={12} />
                           </button>
                         </div>
                         {isLow && (
-                          <div style={{ fontSize: '0.7rem', color: 'var(--warning)', marginTop: '2px' }}>
-                            Alert ≤ {p.lowStockThreshold}
+                          <div style={{ fontSize: '0.6875rem', color: '#FBBF24', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <AlertTriangle size={11} />
+                            <span>Min {p.lowStockThreshold} units</span>
                           </div>
                         )}
                       </td>
@@ -371,8 +390,8 @@ export function InventoryClient({
                           {p.status}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
@@ -402,22 +421,14 @@ export function InventoryClient({
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '16px 20px',
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+          <div className="table-footer">
+            <span>
               Showing Page {page} of {totalPages} ({total} total products)
             </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="pagination">
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="pagination-btn"
                 disabled={page <= 1}
                 onClick={() => handleFilterChange('page', String(page - 1))}
               >
@@ -425,7 +436,7 @@ export function InventoryClient({
               </button>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="pagination-btn"
                 disabled={page >= totalPages}
                 onClick={() => handleFilterChange('page', String(page + 1))}
               >
@@ -438,16 +449,17 @@ export function InventoryClient({
 
       {/* Add Product Modal */}
       {showAddModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '580px' }}>
+        <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Create New Catalog Product</h2>
+              <h2 className="modal-title">Create Catalog Product</h2>
               <button
                 type="button"
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer' }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px' }}
                 onClick={() => setShowAddModal(false)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <form
@@ -465,8 +477,8 @@ export function InventoryClient({
                 });
               }}
             >
-              <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="modal-body">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div className="form-group">
                     <label className="form-label">SKU / Code *</label>
                     <input
@@ -487,7 +499,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Category</label>
                     <input
@@ -506,7 +518,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Price (INR) *</label>
                     <input
@@ -530,7 +542,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Initial Stock Units *</label>
                     <input
@@ -552,8 +564,8 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '12px' }}>
-                  <label className="form-label">Description (AI uses this when describing to buyers)</label>
+                <div className="form-group" style={{ marginTop: '10px' }}>
+                  <label className="form-label">Description (AI uses this when recommending to buyers)</label>
                   <textarea
                     name="description"
                     rows={3}
@@ -562,12 +574,12 @@ export function InventoryClient({
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Tags (comma-separated)</label>
                     <input
                       name="tags"
-                      placeholder="summer, cotton, best-seller"
+                      placeholder="summer, cotton, bestseller"
                       className="form-input"
                     />
                   </div>
@@ -605,16 +617,17 @@ export function InventoryClient({
 
       {/* Edit Product Modal */}
       {editingProduct && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '580px' }}>
+        <div className="modal-backdrop" onClick={() => setEditingProduct(null)}>
+          <div className="modal-content" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Edit Product ({editingProduct.code})</h2>
               <button
                 type="button"
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer' }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px' }}
                 onClick={() => setEditingProduct(null)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <form
@@ -632,7 +645,7 @@ export function InventoryClient({
                 });
               }}
             >
-              <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+              <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Product Name</label>
                   <input
@@ -643,7 +656,7 @@ export function InventoryClient({
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Category</label>
                     <input
@@ -667,7 +680,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Price (INR)</label>
                     <input
@@ -691,7 +704,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div className="form-group">
                     <label className="form-label">Stock Units</label>
                     <input
@@ -713,7 +726,7 @@ export function InventoryClient({
                   </div>
                 </div>
 
-                <div className="form-group" style={{ marginTop: '12px' }}>
+                <div className="form-group" style={{ marginTop: '10px' }}>
                   <label className="form-label">Description</label>
                   <textarea
                     name="description"
@@ -749,22 +762,23 @@ export function InventoryClient({
       {stockEditProduct && (() => {
         const delta = stockValue - stockEditProduct.stock;
         return (
-          <div className="modal-backdrop">
-            <div className="modal-content" style={{ maxWidth: '440px' }}>
+          <div className="modal-backdrop" onClick={() => setStockEditProduct(null)}>
+            <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2 className="modal-title">Adjust Stock: {stockEditProduct.name}</h2>
                 <button
                   type="button"
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer' }}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '6px' }}
                   onClick={() => setStockEditProduct(null)}
                 >
-                  ✕
+                  <X size={18} />
                 </button>
               </div>
               <div className="modal-body">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '0.875rem' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>
-                    Current in stock: <strong>{stockEditProduct.stock} units</strong>
+                    Current in stock: <strong style={{ color: 'var(--text-primary)' }}>{stockEditProduct.stock} units</strong>
                   </span>
                   <span
                     style={{
@@ -772,8 +786,9 @@ export function InventoryClient({
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: '4px',
-                      background: delta > 0 ? 'rgba(16,185,129,0.1)' : delta < 0 ? 'rgba(239,68,68,0.1)' : 'var(--bg-tertiary)',
+                      background: delta > 0 ? 'var(--success-bg)' : delta < 0 ? 'var(--danger-bg)' : 'var(--bg-tertiary)',
                       color: delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--danger)' : 'var(--text-muted)',
+                      border: `1px solid ${delta > 0 ? 'var(--success-border)' : delta < 0 ? 'var(--danger-border)' : 'var(--border)'}`,
                     }}
                   >
                     {delta > 0 ? `+${delta} units` : delta < 0 ? `${delta} units` : 'No change'}
@@ -801,7 +816,7 @@ export function InventoryClient({
                     value={stockValue}
                     onChange={(e) => setStockValue(Math.max(0, parseInt(e.target.value) || 0))}
                     className="form-input"
-                    style={{ textAlign: 'center', fontWeight: 600, fontSize: '1.1rem' }}
+                    style={{ textAlign: 'center', fontWeight: 700, fontSize: '1.125rem', fontFamily: 'var(--font-mono)' }}
                   />
                   <button
                     type="button"
@@ -820,14 +835,13 @@ export function InventoryClient({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Reason / Note for Audit Log</label>
+                  <label className="form-label">Audit Log Justification</label>
                   <input
                     type="text"
-                    placeholder="e.g. Inbound supplier shipment, damaged unit, physical count"
+                    placeholder="e.g. Inbound supplier shipment, physical count correction"
                     value={stockNote}
                     onChange={(e) => setStockNote(e.target.value)}
                     className="form-input"
-                    style={{ fontSize: '0.85rem' }}
                   />
                 </div>
               </div>
@@ -845,7 +859,7 @@ export function InventoryClient({
                   disabled={isPending || delta === 0}
                   onClick={() => handleQuickStockUpdate(stockEditProduct, stockValue)}
                 >
-                  {isPending ? 'Saving...' : delta > 0 ? `Add ${delta} to Stock` : delta < 0 ? `Deduct ${Math.abs(delta)} from Stock` : 'Save Stock'}
+                  {isPending ? 'Saving...' : delta > 0 ? `Add +${delta} to Stock` : delta < 0 ? `Deduct ${Math.abs(delta)}` : 'Save Stock'}
                 </button>
               </div>
             </div>
@@ -855,28 +869,29 @@ export function InventoryClient({
 
       {/* Bulk CSV Import Modal */}
       {showImportModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '600px' }}>
+        <div className="modal-backdrop" onClick={() => setShowImportModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Bulk Import Products via CSV</h2>
               <button
                 type="button"
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.25rem', cursor: 'pointer' }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px' }}
                 onClick={() => setShowImportModal(false)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '14px' }}>
                 Paste CSV text or upload a CSV file with columns:
                 <br />
-                <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', marginTop: '4px', display: 'inline-block' }}>
                   code, name, price, stock, category, description
                 </code>
               </p>
 
-              <div style={{ marginBottom: '12px' }}>
+              <div style={{ marginBottom: '14px' }}>
                 <input
                   type="file"
                   accept=".csv,text/csv"
@@ -898,12 +913,12 @@ export function InventoryClient({
               <div className="form-group">
                 <label className="form-label">Or Paste CSV Data Directly:</label>
                 <textarea
-                  rows={8}
+                  rows={7}
                   value={importCsvText}
                   onChange={(e) => setImportCsvText(e.target.value)}
                   placeholder={`code,name,price,stock,category,description\nTSHIRT-01,Classic Black Tee,599,25,Apparel,Comfort cotton crew neck\nHOODIE-02,Grey Pullover Hoodie,1299,10,Apparel,Fleece lined winter hoodie`}
                   className="form-textarea"
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
                 />
               </div>
             </div>

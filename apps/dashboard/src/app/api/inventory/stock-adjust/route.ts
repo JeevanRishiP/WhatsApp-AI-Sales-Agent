@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   // Verify all products belong to this tenant
   const ownedProducts = await prisma.product.findMany({
     where: { id: { in: productIds }, tenantId: session.tenantId },
-    select: { id: true, stock: true, name: true },
+    select: { id: true, stock: true, name: true, status: true },
   });
 
   const ownedIds = new Set(ownedProducts.map((p) => p.id));
@@ -79,15 +79,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Apply all adjustments in a single transaction
+  // Apply all adjustments and synchronize product status in a single transaction
   const results = await prisma.$transaction(
-    adjustments.map((adj) =>
-      prisma.product.update({
+    adjustments.map((adj) => {
+      const product = ownedProducts.find((p) => p.id === adj.productId);
+      const currentStock = product?.stock ?? 0;
+      const newStock = currentStock + adj.delta;
+
+      let newStatus = product?.status;
+      if (newStock === 0 && product?.status === 'ACTIVE') {
+        newStatus = 'OUT_OF_STOCK';
+      } else if (newStock > 0 && product?.status === 'OUT_OF_STOCK') {
+        newStatus = 'ACTIVE';
+      }
+
+      return prisma.product.update({
         where: { id: adj.productId },
-        data: { stock: { increment: adj.delta } },
-        select: { id: true, code: true, name: true, stock: true },
-      })
-    )
+        data: {
+          stock: newStock,
+          ...(newStatus !== product?.status ? { status: newStatus } : {}),
+        },
+        select: { id: true, code: true, name: true, stock: true, status: true },
+      });
+    })
   );
 
   // Log to audit log

@@ -41,18 +41,27 @@ if ! docker info >/dev/null 2>&1; then
     printf "."
   done
   echo ""
-  echo " Docker is ready!"
+  echo "✅ Docker is ready!"
 else
-  echo " Docker is already running."
+  echo "✅ Docker is already running."
 fi
 
 # 2. Start container services in background
 echo "📦 Starting Docker containers (PostgreSQL, Redis, Evolution API)..."
 docker compose up -d
 
-echo " Containers started successfully."
+echo "✅ Containers started successfully."
 
-# 3. Start ngrok tunnel for public endpoints & payments
+# 3. Clean up any stale/lingering processes on application ports (3001, 3002, 3005)
+for port in 3001 3002 3005; do
+  pids=$(lsof -ti :$port 2>/dev/null || true)
+  if [ -n "$pids" ]; then
+    echo "⚠️  Freeing occupied port :$port (PID: $pids)..."
+    kill -9 $pids 2>/dev/null || true
+  fi
+done
+
+# 4. Start ngrok tunnel for public endpoints & payments
 NGROK_DOMAIN="departed-jailbreak-sandpaper.ngrok-free.dev"
 if pgrep -x "ngrok" >/dev/null 2>&1; then
   echo "🌐 ngrok is already running."
@@ -61,25 +70,27 @@ else
   ngrok http 3002 --url "${NGROK_DOMAIN}" --log=stdout > /dev/null 2>&1 &
   NGROK_PID=$!
   sleep 2
-  echo " ngrok tunnel online at https://${NGROK_DOMAIN}"
+  echo "✅ ngrok tunnel online at https://${NGROK_DOMAIN}"
 fi
 
-# 4. Launch the development servers (API, Dashboard, Worker)
+# 5. Launch the development servers (API, Dashboard, Storefront, Worker)
 echo "⚡ Starting web apps and API servers..."
-echo "👉 Dashboard: http://localhost:3001"
-echo "👉 API:       http://localhost:3002"
-echo "👉 Evolution: http://localhost:8080"
-echo "👉 Tunnel:    https://${NGROK_DOMAIN}"
+echo "👉 Storefront: http://localhost:3005/aura-luxe"
+echo "👉 Dashboard:  http://localhost:3001"
+echo "👉 API:        http://localhost:3002"
+echo "👉 Evolution:  http://localhost:8080"
+echo "👉 Tunnel:     https://${NGROK_DOMAIN}"
 echo "=================================================="
 
-# Automatically open the dashboard in default browser once ready
+# Automatically open storefront and dashboard in default browser once ready
 (
-  for i in {1..25}; do
-    if curl -s -o /dev/null "http://localhost:3001" 2>/dev/null; then
+  for i in {1..30}; do
+    if curl -s -o /dev/null -m 2 "http://localhost:3005/aura-luxe" 2>/dev/null && curl -s -o /dev/null -m 2 "http://localhost:3001" 2>/dev/null; then
       break
     fi
     sleep 1
   done
+  open "http://localhost:3005/aura-luxe"
   open "http://localhost:3001"
 ) &
 

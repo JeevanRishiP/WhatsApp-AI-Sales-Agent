@@ -15,6 +15,11 @@ import { checkoutPaymentRoutes } from './routes/payments/checkout.js';
 import { phonePeCheckoutRoutes } from './routes/payments/phonepe-checkout.js';
 import { tenantAdminRoutes } from './routes/admin/tenants.js';
 import { productAdminRoutes } from './routes/admin/products.js';
+import { customerAuthRoutes } from './routes/customer/auth.js';
+import { customerStorefrontRoutes } from './routes/customer/storefront.js';
+import { customerCartRoutes } from './routes/customer/cart.js';
+import { customerOrdersRoutes } from './routes/customer/orders.js';
+import { customerAddressesRoutes } from './routes/customer/addresses.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -41,8 +46,14 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await server.register(cors, {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    origin: (_origin, cb) => {
+      // Echo the requesting origin to support credentials across local ports (3005 -> 3002) and tunnels
+      cb(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-slug', 'x-api-key', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   await server.register(rateLimit, {
@@ -75,6 +86,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(phonePeCheckoutRoutes);
   await server.register(tenantAdminRoutes);
   await server.register(productAdminRoutes);
+  await server.register(customerAuthRoutes);
+  await server.register(customerStorefrontRoutes);
+  await server.register(customerCartRoutes);
+  await server.register(customerOrdersRoutes);
+  await server.register(customerAddressesRoutes);
 
   // 4. Global Error Handler
   server.setErrorHandler((error: FastifyError, request, reply) => {

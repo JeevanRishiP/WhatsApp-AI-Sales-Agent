@@ -24,9 +24,9 @@ export interface ConversationLockHandle {
 }
 
 export class ConversationLock {
-  private static TTL_MS = 30000; // 30 seconds max hold time
+  private static TTL_MS = 15000; // 15 seconds max hold time (heartbeat auto-renews during execution)
   private static RETRY_INTERVAL_MS = 250;
-  private static MAX_WAIT_MS = 15000; // 15 seconds max wait
+  private static MAX_WAIT_MS = 20000; // 20 seconds wait (guaranteed to outlast TTL if previous job died)
 
   /**
    * Acquires an exclusive lock for a customer's conversation.

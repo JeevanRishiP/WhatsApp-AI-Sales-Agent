@@ -94,17 +94,75 @@ export interface AiModelEntry {
 }
 
 export interface AiConfigInput {
-  priorityList: AiModelEntry[];
+  priorityList?: AiModelEntry[];
+  aiAgentEnabled?: boolean;
+  offlineSupportPhone?: string;
+  offlineMessage?: string;
 }
 
 export async function updateAiConfig(
   tenantId: string,
-  config: AiConfigInput
+  config: Partial<AiConfigInput>
 ): Promise<Tenant> {
+  const current = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { aiConfig: true },
+  });
+  const currentConfig = (current?.aiConfig as Record<string, any>) || {};
+  const merged = { ...currentConfig, ...config };
+
   return prisma.tenant.update({
     where: { id: tenantId },
     data: {
-      aiConfig: config as unknown as Prisma.InputJsonValue,
+      aiConfig: merged as unknown as Prisma.InputJsonValue,
+    },
+  });
+}
+
+export async function toggleAiAgent(
+  tenantId: string,
+  enabled: boolean
+): Promise<boolean> {
+  const current = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { aiConfig: true },
+  });
+  const currentConfig = (current?.aiConfig as Record<string, any>) || {};
+  const updated = { ...currentConfig, aiAgentEnabled: enabled };
+
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      aiConfig: updated as unknown as Prisma.InputJsonValue,
+    },
+  });
+  return enabled;
+}
+
+export async function updateOfflineSettings(
+  tenantId: string,
+  input: {
+    aiAgentEnabled?: boolean;
+    offlineSupportPhone?: string;
+    offlineMessage?: string;
+  }
+): Promise<void> {
+  const current = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { aiConfig: true },
+  });
+  const currentConfig = (current?.aiConfig as Record<string, any>) || {};
+  const updated = {
+    ...currentConfig,
+    ...(typeof input.aiAgentEnabled === 'boolean' ? { aiAgentEnabled: input.aiAgentEnabled } : {}),
+    ...(input.offlineSupportPhone !== undefined ? { offlineSupportPhone: input.offlineSupportPhone } : {}),
+    ...(input.offlineMessage !== undefined ? { offlineMessage: input.offlineMessage } : {}),
+  };
+
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      aiConfig: updated as unknown as Prisma.InputJsonValue,
     },
   });
 }
@@ -116,7 +174,7 @@ export async function getAiConfig(tenantId: string): Promise<AiConfigInput | nul
   });
   if (!tenant) return null;
   const cfg = tenant.aiConfig as any;
-  if (!cfg || !cfg.priorityList) return null;
+  if (!cfg) return null;
   return cfg as AiConfigInput;
 }
 
@@ -205,12 +263,13 @@ export async function verifyTenantCredentials(
 
 export async function verifyApiKey(
   apiKey: string
-): Promise<{ id: string; name: string; ownerEmail: string } | null> {
+): Promise<{ id: string; name: string; ownerName?: string | null; ownerEmail: string } | null> {
   const tenant = await prisma.tenant.findUnique({
     where: { apiKey },
     select: {
       id: true,
       name: true,
+      ownerName: true,
       ownerEmail: true,
       status: true,
     },

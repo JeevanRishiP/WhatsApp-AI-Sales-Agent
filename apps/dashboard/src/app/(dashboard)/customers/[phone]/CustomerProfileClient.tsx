@@ -18,6 +18,23 @@ import {
   updateCustomerProfileAction,
   sendCustomerDirectMessageAction,
 } from '../../../../lib/actions/customers';
+import {
+  TrendingUp,
+  ShoppingBag,
+  MapPin,
+  MessageSquare,
+  ExternalLink,
+  Edit2,
+  Copy,
+  Check,
+  Send,
+  ArrowLeft,
+  Sparkles,
+  ShieldCheck,
+  Calendar,
+  CreditCard,
+  Package,
+} from 'lucide-react';
 
 interface CustomerProfileClientProps {
   profile: FullCustomerProfile;
@@ -133,9 +150,9 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
     const text = [
       addr.name,
       addr.phone,
-      addr.addressLine1,
-      addr.addressLine2,
-      addr.landmark,
+      addr.addressLine1 || addr.line1,
+      addr.addressLine2 || addr.line2,
+      addr.landmark ? `Landmark: ${addr.landmark}` : '',
       `${addr.city || ''}, ${addr.state || ''} - ${addr.pincode || ''}`,
       addr.country || 'India',
     ]
@@ -454,34 +471,42 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
       </div>
 
       {/* ─── Navigation Tabs ───────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '2px' }}>
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '2px', flexWrap: 'wrap' }}>
         <button
           type="button"
-          className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('overview')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          📊 Purchasing Power & Intelligence
+          <TrendingUp size={13} />
+          <span>Purchasing Power & Intelligence</span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'orders' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'orders' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('orders')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          📦 Order History ({profile.orders.length})
+          <ShoppingBag size={13} />
+          <span>Order History ({profile.orders.length})</span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'delivery' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'delivery' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('delivery')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          📍 Delivery Details ({profile.deliveryAddresses.length})
+          <MapPin size={13} />
+          <span>Delivery Details ({profile.deliveryAddresses.length})</span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'chat' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('chat')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          💬 WhatsApp Chat Stream ({profile.conversation?.messages.length || 0})
+          <MessageSquare size={13} />
+          <span>WhatsApp Chat Stream ({profile.conversation?.messages.length || 0})</span>
         </button>
       </div>
 
@@ -1048,7 +1073,8 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                       {order.deliveryAddress ? (
                         <span style={{ color: 'var(--text-primary)' }}>
                           {[
-                            order.deliveryAddress.addressLine1,
+                            order.deliveryAddress.addressLine1 || (order.deliveryAddress as any).line1,
+                            order.deliveryAddress.addressLine2 || (order.deliveryAddress as any).line2,
                             order.deliveryAddress.city,
                             order.deliveryAddress.state,
                             order.deliveryAddress.pincode,
@@ -1113,45 +1139,65 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                     position: 'relative',
                   }}
                 >
-                  {idx === 0 && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        background: 'var(--accent-subtle)',
-                        color: 'var(--accent)',
-                        border: '1px solid var(--accent)',
-                      }}
-                    >
-                      ★ Most Recent
-                    </span>
-                  )}
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <span style={{ fontSize: '1.2rem' }}>🏡</span>
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                      {addr.name || profile.customerName || 'Customer Address'}
-                    </h4>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>
+                        {addr.label?.toLowerCase().includes('office') || addr.label?.toLowerCase().includes('work') ? '🏢' : '🏡'}
+                      </span>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                            {addr.name || profile.customerName || 'Customer Address'}
+                          </h4>
+                          {addr.label && (
+                            <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'uppercase' }}>
+                              {addr.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {addr.isDefault && (
+                        <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                          ★ Default
+                        </span>
+                      )}
+                      {idx === 0 && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            background: 'var(--accent-subtle)',
+                            color: 'var(--accent)',
+                            border: '1px solid var(--accent)',
+                          }}
+                        >
+                          ★ Most Recent
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
-                    {addr.addressLine1 && <div>{addr.addressLine1}</div>}
-                    {addr.addressLine2 && <div>{addr.addressLine2}</div>}
+                    {(addr.addressLine1 || (addr as any).line1) && (
+                      <div style={{ fontWeight: 600 }}>{addr.addressLine1 || (addr as any).line1}</div>
+                    )}
+                    {(addr.addressLine2 || (addr as any).line2) && (
+                      <div style={{ color: 'var(--text-secondary)' }}>{addr.addressLine2 || (addr as any).line2}</div>
+                    )}
                     {addr.landmark && (
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem' }}>
-                        Landmark: {addr.landmark}
+                        Landmark: <strong>{addr.landmark}</strong>
                       </div>
                     )}
-                    <div>
+                    <div style={{ marginTop: '2px' }}>
                       {[addr.city, addr.state].filter(Boolean).join(', ')}{' '}
                       {addr.pincode && <strong>- {addr.pincode}</strong>}
                     </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '2px' }}>
                       {addr.country || 'India'}
                     </div>
                   </div>
@@ -1237,8 +1283,9 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
               </div>
             ) : (
               profile.conversation.messages.map((m) => {
-                const isCustomer = m.role === 'customer' || m.role === 'user';
-                const isAgent = m.role === 'agent' || m.role === 'human';
+                const role = (m.role || '').toLowerCase();
+                const isCustomer = role === 'customer' || role === 'user';
+                const isAgent = role === 'agent' || role === 'human' || role === 'merchant';
 
                 return (
                   <div
@@ -1306,6 +1353,7 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
 
                       {/* Timestamp */}
                       <div
+                        suppressHydrationWarning
                         style={{
                           fontSize: '0.6875rem',
                           color: 'rgba(233, 237, 239, 0.6)',

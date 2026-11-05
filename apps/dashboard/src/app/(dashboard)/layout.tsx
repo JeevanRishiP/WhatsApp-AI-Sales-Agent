@@ -1,5 +1,5 @@
 import { getSession } from '../../lib/auth';
-import { Sidebar } from '../../components/Sidebar';
+import { DashboardShell } from '../../components/DashboardShell';
 import { prisma } from '@wcos/db';
 
 export default async function DashboardLayout({
@@ -13,9 +13,11 @@ export default async function DashboardLayout({
   let lowStockCount = 0;
   let handoffCount = 0;
   let pendingPaymentsCount = 0;
+  let staffList: any[] = [];
+  let aiAgentEnabled = true;
 
   try {
-    const [lowStockResult, handoffResult, pendingPaymentsResult] = await Promise.all([
+    const [lowStockResult, handoffResult, pendingPaymentsResult, staffUsers, tenant] = await Promise.all([
       prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count FROM "Product"
         WHERE "tenantId" = ${session.tenantId}::uuid
@@ -34,26 +36,45 @@ export default async function DashboardLayout({
           status: 'PENDING_PAYMENT',
         },
       }),
+      prisma.staffUser.findMany({
+        where: { tenantId: session.tenantId, status: 'ACTIVE' },
+        select: {
+          id: true,
+          fullName: true,
+          role: true,
+          avatarUrl: true,
+          email: true,
+        },
+        orderBy: { role: 'asc' },
+      }),
+      prisma.tenant.findUnique({
+        where: { id: session.tenantId },
+        select: { aiConfig: true },
+      }),
     ]);
 
     lowStockCount = Number(lowStockResult[0]?.count || 0);
     handoffCount = handoffResult;
     pendingPaymentsCount = pendingPaymentsResult;
+    staffList = staffUsers;
+    aiAgentEnabled = ((tenant?.aiConfig as any)?.aiAgentEnabled) !== false;
   } catch (e) {
     // Graceful fallback if database query times out or fails
   }
 
   return (
-    <div className="app-layout">
-      <Sidebar
-        tenantName={session.tenantName}
-        lowStockCount={lowStockCount}
-        handoffCount={handoffCount}
-        pendingPaymentsCount={pendingPaymentsCount}
-      />
-      <main className="main-content">
-        {children}
-      </main>
-    </div>
+    <DashboardShell
+      tenantName={session.tenantName}
+      currentRole={session.role}
+      staffName={session.staffName || 'Owner'}
+      staffId={session.staffId}
+      staffList={staffList}
+      lowStockCount={lowStockCount}
+      handoffCount={handoffCount}
+      pendingPaymentsCount={pendingPaymentsCount}
+      aiAgentEnabled={aiAgentEnabled}
+    >
+      {children}
+    </DashboardShell>
   );
 }

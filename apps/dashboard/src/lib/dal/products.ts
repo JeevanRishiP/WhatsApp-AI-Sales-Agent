@@ -223,6 +223,18 @@ export async function updateProduct(
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.status !== undefined) data.status = input.status;
 
+  // Auto-sync status with stock level
+  const targetStock = input.stock !== undefined ? input.stock : existing.stock;
+  if (targetStock > 0) {
+    if (data.status === 'OUT_OF_STOCK' || (!data.status && existing.status === 'OUT_OF_STOCK')) {
+      data.status = 'ACTIVE';
+    }
+  } else if (targetStock === 0) {
+    if (data.status === 'ACTIVE' || (!data.status && existing.status === 'ACTIVE')) {
+      data.status = 'OUT_OF_STOCK';
+    }
+  }
+
   return prisma.product.update({
     where: { id: productId },
     data,

@@ -205,6 +205,60 @@ export function isAddressChangeRequest(rawMessage: string): boolean {
 }
 
 /**
+ * Matches user's response to one of their saved delivery addresses.
+ * Supports index numbers ("1", "2", "3"), ordinals ("first", "second"),
+ * labels ("home", "office", "work"), or landmarks/keywords.
+ */
+export function matchSavedAddressSelection(
+  rawMessage: string,
+  savedAddresses: Array<any>
+): any | null {
+  if (!rawMessage || !savedAddresses || savedAddresses.length === 0) return null;
+  const msg = rawMessage.trim().toLowerCase();
+
+  // 1. Direct number check (e.g. "1", "2", "3", "1️⃣", "2️⃣")
+  const numMatch = msg.match(/^(?:(?:use|deliver to|select|option|address)\s+)?([1-9])(?:st|nd|rd|th)?(?:\s+address)?$/i);
+  if (numMatch && numMatch[1]) {
+    const idx = parseInt(numMatch[1], 10) - 1;
+    if (idx >= 0 && idx < savedAddresses.length) {
+      return savedAddresses[idx];
+    }
+  }
+
+  // 2. Ordinals: "first" / "1st", "second" / "2nd", "third" / "3rd"
+  if (/\b(first|1st|modalu|pehle)\b/i.test(msg) && savedAddresses.length >= 1) {
+    return savedAddresses[0];
+  }
+  if (/\b(second|2nd|eradu|dusra)\b/i.test(msg) && savedAddresses.length >= 2) {
+    return savedAddresses[1];
+  }
+  if (/\b(third|3rd|muru|teesra)\b/i.test(msg) && savedAddresses.length >= 3) {
+    return savedAddresses[2];
+  }
+
+  // 3. Label matching (e.g. "home", "deliver to home", "office", "work")
+  for (const addr of savedAddresses) {
+    if (addr.label) {
+      const lbl = addr.label.toLowerCase().trim();
+      const regex = new RegExp(`\\b${lbl}\\b`, 'i');
+      if (regex.test(msg)) {
+        return addr;
+      }
+    }
+  }
+
+  // 4. City or Locality matching
+  for (const addr of savedAddresses) {
+    const locality = (addr.line2 || addr.landmark || addr.city || '').toLowerCase().trim();
+    if (locality && locality.length > 3 && msg.includes(locality)) {
+      return addr;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Robustly parses and extracts structured delivery address details from natural text.
  * Returns null if the text does not contain address characteristics.
  */

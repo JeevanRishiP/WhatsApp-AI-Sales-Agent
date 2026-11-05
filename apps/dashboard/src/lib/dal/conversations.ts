@@ -87,7 +87,7 @@ export interface ConversationDetail extends Conversation {
   customerMemory: {
     customerName: string | null;
     totalOrders: number;
-    totalSpent: Prisma.Decimal;
+    totalSpent: number;
     isRepeatCustomer: boolean;
   } | null;
 }
@@ -127,7 +127,12 @@ export async function getConversationDetail(
 
   return {
     ...conversation,
-    customerMemory,
+    customerMemory: customerMemory
+      ? {
+          ...customerMemory,
+          totalSpent: Number(customerMemory.totalSpent),
+        }
+      : null,
   };
 }
 

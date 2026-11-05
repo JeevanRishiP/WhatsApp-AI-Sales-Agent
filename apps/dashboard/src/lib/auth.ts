@@ -21,10 +21,16 @@ function getSecretKey(): Uint8Array {
 
 // ─── Session Payload ──────────────────────────────────────────────
 
+export type StaffRole = 'OWNER' | 'STORE_MANAGER' | 'FULFILLMENT_LEAD' | 'SUPPORT_CONCIERGE';
+
 export interface SessionPayload extends JWTPayload {
   tenantId: string;
   tenantName: string;
   email: string;
+  staffId?: string;
+  staffName?: string;
+  role: StaffRole;
+  avatarUrl?: string;
 }
 
 // ─── Create Session ───────────────────────────────────────────────
@@ -33,11 +39,19 @@ export async function createSession(payload: {
   tenantId: string;
   tenantName: string;
   email: string;
+  staffId?: string;
+  staffName?: string;
+  role?: StaffRole;
+  avatarUrl?: string;
 }): Promise<void> {
   const token = await new SignJWT({
     tenantId: payload.tenantId,
     tenantName: payload.tenantName,
     email: payload.email,
+    staffId: payload.staffId,
+    staffName: payload.staffName || 'Owner',
+    role: payload.role || 'OWNER',
+    avatarUrl: payload.avatarUrl,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -67,7 +81,11 @@ export async function verifySession(): Promise<SessionPayload | null> {
     if (!payload.tenantId || typeof payload.tenantId !== 'string') {
       return null;
     }
-    return payload as SessionPayload;
+    const session = payload as any;
+    if (!session.role) {
+      session.role = 'OWNER';
+    }
+    return session as SessionPayload;
   } catch {
     return null;
   }

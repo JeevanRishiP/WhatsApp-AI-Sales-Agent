@@ -24,6 +24,19 @@ export interface PromptContext {
     pincode?: string;
     state?: string;
   };
+  savedDeliveryAddresses?: Array<{
+    id?: string;
+    label?: string;
+    name: string;
+    phone?: string;
+    line1: string;
+    line2?: string;
+    landmark?: string;
+    city: string;
+    state?: string;
+    pincode: string;
+    isDefault?: boolean;
+  }>;
   currentDeliveryAddress?: {
     name?: string;
     address?: string;
@@ -77,16 +90,35 @@ ${ctx.catalogContext}
   const formatAddr = (addr: any) => {
     if (!addr) return '';
     if (typeof addr === 'string') return addr;
-    const parts = [addr.name, addr.address, addr.city, addr.pincode].filter(Boolean);
+    const parts = [addr.name, addr.address || addr.line1, addr.city, addr.pincode].filter(Boolean);
     return parts.join(', ');
   };
 
-  const deliverySection = ctx.savedDeliveryAddress
+  const formatSavedAddr = (addr: any) => {
+    if (!addr) return '';
+    const parts = [
+      addr.name,
+      addr.line1 || addr.addressLine1 || addr.address,
+      addr.line2 || addr.addressLine2,
+      addr.landmark ? `(Landmark: ${addr.landmark})` : '',
+      addr.city,
+      addr.pincode ? `PIN: ${addr.pincode}` : '',
+    ].filter(Boolean);
+    const def = addr.isDefault ? ' (Primary Default)' : '';
+    return `${parts.join(', ')}${def}`;
+  };
+
+  const addressesList = ctx.savedDeliveryAddresses && ctx.savedDeliveryAddresses.length > 0
+    ? ctx.savedDeliveryAddresses
+    : (ctx.savedDeliveryAddress ? [ctx.savedDeliveryAddress] : []);
+
+  const deliverySection = addressesList.length > 0
     ? `
 CUSTOMER DELIVERY PROFILE:
-- Customer Status: RETURNING CUSTOMER (Previous orders on file)
-- Saved Delivery Address on File: ${formatAddr(ctx.savedDeliveryAddress)}
-- Address Confirmed for Current Checkout: ${ctx.addressConfirmed ? 'YES' : 'NO (Confirmation Required)'}
+- Customer Status: RETURNING CUSTOMER (${addressesList.length} Saved Address${addressesList.length > 1 ? 'es' : ''} on file)
+- Saved Addresses on File:
+${addressesList.map((a, idx) => `  ${idx + 1}️⃣ [${(a as any).label || 'Destination'}] ${formatSavedAddr(a)}`).join('\n')}
+- Address Confirmed for Current Checkout: ${ctx.addressConfirmed ? 'YES' : 'NO (Confirmation or Selection Required)'}
 `
     : `
 CUSTOMER DELIVERY PROFILE:
@@ -187,18 +219,36 @@ ACTION SELECTION RULES:
       - Stage: "CHECKOUT_ADDRESS"
       - Action: { "action": "REQUEST_DELIVERY_ADDRESS", "reply": "Please share your delivery details..." }
 
-   B) IF RETURNING CUSTOMER WITH SAVED DELIVERY ADDRESS:
-      - If the address has NOT been confirmed yet for this checkout:
+   B) IF RETURNING CUSTOMER WITH SAVED DELIVERY ADDRESS(ES):
+      - If customer has MULTIPLE saved addresses (2 or more on file) and address has NOT been confirmed:
+        Present all saved addresses with clear numbers and ask the customer to pick one or provide a new address:
+        "📦 *Which delivery address shall we deliver your order to?*
+
+${addressesList.map((a, idx) => `  ${idx + 1}️⃣ *${(a as any).label || 'Destination'}*: ${formatSavedAddr(a)}`).join('\n\n')}
+
+Reply with *1* or *2* (or 'Home'/'Office'), or reply with a *new delivery address* if you wish to deliver elsewhere! 📍"
+        Stage: "CHECKOUT_ADDRESS"
+        Action: { "action": "REQUEST_DELIVERY_ADDRESS", "reply": "Which delivery address shall we deliver your order to?..." }
+
+      - If customer has 1 saved address and address has NOT been confirmed:
         Send the saved delivery details along with the bill breakdown and ask for confirmation:
         "📦 *Delivery Address on file:*\n• *Name:* [Name]\n• *Address:* [Complete Address, City - Pincode]\n\nShould we deliver to this address, or would you like to use a different delivery address?"
-      - Stage: "CHECKOUT_CONFIRM"
-      - Action: { "action": "REQUEST_DELIVERY_ADDRESS", "reply": "Here is your saved delivery address..." }
+        Stage: "CHECKOUT_CONFIRM"
+        Action: { "action": "REQUEST_DELIVERY_ADDRESS", "reply": "Here is your saved delivery address..." }
 
-   C) WHEN CUSTOMER CONFIRMS THE ADDRESS (e.g. "address is correct", "address is corect", "yes", "hu", "ha", "correct", "deliver here", "proceed", "ok", "same address"):
+   C) WHEN CUSTOMER SELECTS OR CONFIRMS AN ADDRESS (e.g. "1", "2", "first address", "second", "deliver to home", "office", "address is correct", "yes", "hu", "ha", "correct", "deliver here", "proceed", "same address"):
       - ALWAYS emit INITIATE_CHECKOUT immediately!
       - Stage: "AWAITING_PAYMENT"
       - Action: { "action": "INITIATE_CHECKOUT", "reply": "Preparing your secure payment link... ✨" }
       - DO NOT type any link in your response. The system will append the official PhonePe/Razorpay link automatically!
+
+   D) WHEN CUSTOMER ASKS TO CHANGE OR SHARES A NEW ADDRESS:
+      - Examples: "change address", "new address", "deliver to another address", "use another address", or customer provides a new address.
+      - If customer shares a new address in text:
+        Extract and save the new delivery address, then emit INITIATE_CHECKOUT:
+        Action: { "action": "CONFIRM_DELIVERY_ADDRESS", "deliveryAddress": { ... }, "reply": "Saved your new address! Preparing your secure payment link... ✨" }
+      - If they only asked to change without providing the text yet:
+        Action: { "action": "REQUEST_DELIVERY_ADDRESS", "reply": "No problem! Please share your new delivery address (Recipient Name, House/Street, City, Pincode): 📍" }
 
    D) WHEN CUSTOMER ASKS FOR PAYMENT LINK, PHONEPE/UPI, OR SAYS LINK IS BROKEN/NOT WORKING:
       - Examples: "Phonepe link kalsu", "link work agthilla bere link kalsu", "send payment link", "send link", "pay link", "link not working", "resend link"

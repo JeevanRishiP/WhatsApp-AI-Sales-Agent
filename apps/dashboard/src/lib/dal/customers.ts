@@ -280,6 +280,8 @@ export interface PurchasePowerAnalysis {
 }
 
 export interface CustomerDeliveryAddress {
+  id?: string;
+  label?: string; // "Home", "Office", "Studio", etc.
   name?: string;
   phone?: string;
   addressLine1?: string;
@@ -289,6 +291,7 @@ export interface CustomerDeliveryAddress {
   state?: string;
   pincode?: string;
   country?: string;
+  isDefault?: boolean;
   lastUsedAt?: Date;
   ordersCount?: number;
 }
@@ -367,6 +370,17 @@ export async function getFullCustomerProfile(
 ): Promise<FullCustomerProfile | null> {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(phoneOrId);
   const cleanPhone = phoneOrId.replace(/[^\d+]/g, '');
+  const rawDigits = phoneOrId.replace(/\D/g, '');
+  const digitsWithoutCountry = rawDigits.replace(/^91/, '');
+  const phoneVariants = [
+    phoneOrId,
+    cleanPhone,
+    `+${rawDigits}`,
+    rawDigits,
+    `+91${digitsWithoutCountry}`,
+    `91${digitsWithoutCountry}`,
+    digitsWithoutCountry,
+  ];
 
   // 1. Fetch CustomerMemory
   let customer = await prisma.customerMemory.findFirst({
@@ -374,20 +388,18 @@ export async function getFullCustomerProfile(
       tenantId, // ← Multi-tenant isolation
       OR: [
         ...(isUuid ? [{ id: phoneOrId }] : []),
-        { customerPhone: phoneOrId },
-        { customerPhone: cleanPhone },
-        { customerPhone: cleanPhone.replace(/^\+/, '') },
+        { customerPhone: { in: phoneVariants } },
       ],
     },
   });
 
-  const effectivePhone = customer ? customer.customerPhone : phoneOrId;
+  const effectivePhone = customer ? customer.customerPhone : (phoneVariants[0] || phoneOrId);
 
   // 2. Fetch all orders for this customer (chronological order for timeline)
   const dbOrders = await prisma.order.findMany({
     where: {
       tenantId, // ← Multi-tenant isolation
-      customerPhone: effectivePhone,
+      customerPhone: { in: [effectivePhone, ...phoneVariants] },
     },
     include: {
       items: true,
@@ -399,7 +411,7 @@ export async function getFullCustomerProfile(
   const conversation = await prisma.conversation.findFirst({
     where: {
       tenantId, // ← Multi-tenant isolation
-      customerPhone: effectivePhone,
+      customerPhone: { in: [effectivePhone, ...phoneVariants] },
     },
     include: {
       messages: {
@@ -533,16 +545,54 @@ export async function getFullCustomerProfile(
 
   // 6. Extract Delivery Addresses and Deduplicate
   const deliveryAddressMap = new Map<string, CustomerDeliveryAddress>();
+
+  // 6A. First check saved addresses from relational Customer model
+  const dbCustomer = await prisma.customer.findFirst({
+    where: {
+      tenantId,
+      phone: { in: [effectivePhone, ...phoneVariants] },
+    },
+    include: {
+      addresses: {
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      },
+    },
+  });
+
+  if (dbCustomer && dbCustomer.addresses) {
+    for (const ca of dbCustomer.addresses) {
+      const key = `${ca.line1}-${ca.pincode}`.toLowerCase().trim();
+      deliveryAddressMap.set(key, {
+        id: ca.id,
+        label: ca.label || undefined,
+        name: ca.recipientName,
+        phone: ca.phone,
+        addressLine1: ca.line1,
+        addressLine2: ca.line2 || undefined,
+        landmark: ca.landmark || undefined,
+        city: ca.city,
+        state: ca.state,
+        pincode: ca.pincode,
+        country: 'India',
+        isDefault: ca.isDefault,
+        lastUsedAt: ca.updatedAt,
+      });
+    }
+  }
+
+  // 6B. Extract delivery addresses from past orders (handling line1, line2, addressLine1, street)
   for (const o of [...dbOrders].reverse()) {
     if (o.deliveryAddress && typeof o.deliveryAddress === 'object') {
       const addr = o.deliveryAddress as Record<string, any>;
-      const key = `${addr.addressLine1 || ''}-${addr.pincode || ''}`.toLowerCase().trim();
+      const line1 = addr.line1 || addr.addressLine1 || addr.street || addr.address || '';
+      const line2 = addr.line2 || addr.addressLine2 || addr.area || '';
+      const key = `${line1}-${addr.pincode || ''}`.toLowerCase().trim();
       if (key && !deliveryAddressMap.has(key)) {
         deliveryAddressMap.set(key, {
-          name: addr.name || addr.fullName || o.customerName || undefined,
+          name: addr.recipientName || addr.name || addr.fullName || o.customerName || undefined,
           phone: addr.phone || addr.mobileNumber || o.customerPhone || undefined,
-          addressLine1: addr.addressLine1 || addr.street || addr.address || undefined,
-          addressLine2: addr.addressLine2 || addr.area || undefined,
+          addressLine1: line1 || undefined,
+          addressLine2: line2 || undefined,
           landmark: addr.landmark || undefined,
           city: addr.city || undefined,
           state: addr.state || undefined,
@@ -561,11 +611,13 @@ export async function getFullCustomerProfile(
     let parsedAddress: CustomerDeliveryAddress | null = null;
     if (o.deliveryAddress && typeof o.deliveryAddress === 'object') {
       const addr = o.deliveryAddress as Record<string, any>;
+      const line1 = addr.line1 || addr.addressLine1 || addr.street || addr.address || '';
+      const line2 = addr.line2 || addr.addressLine2 || addr.area || '';
       parsedAddress = {
-        name: addr.name || addr.fullName || o.customerName || undefined,
+        name: addr.recipientName || addr.name || addr.fullName || o.customerName || undefined,
         phone: addr.phone || addr.mobileNumber || undefined,
-        addressLine1: addr.addressLine1 || addr.street || addr.address || undefined,
-        addressLine2: addr.addressLine2 || addr.area || undefined,
+        addressLine1: line1 || undefined,
+        addressLine2: line2 || undefined,
         landmark: addr.landmark || undefined,
         city: addr.city || undefined,
         state: addr.state || undefined,

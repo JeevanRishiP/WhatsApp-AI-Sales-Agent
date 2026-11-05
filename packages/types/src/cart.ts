@@ -8,6 +8,9 @@ import { z } from 'zod';
  * for abandoned carts.
  */
 
+export const CartChannelSchema = z.enum(['wa', 'web']);
+export type CartChannel = z.infer<typeof CartChannelSchema>;
+
 export const CartItemSchema = z.object({
   productId: z.string().uuid(),
   productCode: z.string(),
@@ -15,6 +18,7 @@ export const CartItemSchema = z.object({
   quantity: z.number().int().min(1).max(50),
   priceAtAdd: z.number().nonnegative(),      // price when added (snapshot)
   imageUrl: z.string().url().optional(),
+  source: z.enum(['whatsapp', 'web']).default('whatsapp'),
   addedAt: z.date(),
 });
 
@@ -24,6 +28,7 @@ export const CartSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
   customerPhone: z.string(),
+  channel: CartChannelSchema.default('wa'),
   items: z.array(CartItemSchema),
   subtotal: z.number().nonnegative(),
   currency: z.string().length(3).default('INR'),
@@ -35,6 +40,15 @@ export const CartSchema = z.object({
 
 export type Cart = z.infer<typeof CartSchema>;
 
+export const DualCartSchema = z.object({
+  waCart: CartSchema,
+  webCart: CartSchema,
+  totalItemCount: z.number().int().nonnegative(),
+  combinedSubtotal: z.number().nonnegative(),
+});
+
+export type DualCart = z.infer<typeof DualCartSchema>;
+
 // ─── Cart operation types ─────────────────────────────────────────
 
 export const AddToCartRequestSchema = z.object({
@@ -42,9 +56,19 @@ export const AddToCartRequestSchema = z.object({
   customerPhone: z.string(),
   productCode: z.string(),
   quantity: z.number().int().min(1).max(50).default(1),
+  channel: CartChannelSchema.default('wa'),
 });
 
 export type AddToCartRequest = z.infer<typeof AddToCartRequestSchema>;
+
+export const MergeCartsRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+  customerPhone: z.string(),
+  sourceChannel: CartChannelSchema,
+  targetChannel: CartChannelSchema,
+});
+
+export type MergeCartsRequest = z.infer<typeof MergeCartsRequestSchema>;
 
 export const CartUpdateResultSchema = z.object({
   cart: CartSchema,

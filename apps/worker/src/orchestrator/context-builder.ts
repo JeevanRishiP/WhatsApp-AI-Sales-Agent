@@ -169,8 +169,48 @@ export async function buildConversationContext(
     orderBy: { createdAt: 'desc' },
   });
 
+  // 7B. Query saved addresses from CustomerAddress table
+  const phoneClean = customerPhone.replace(/[^0-9]/g, '');
+  const phoneVariants = [
+    customerPhone,
+    `+${phoneClean}`,
+    phoneClean,
+    phoneClean.replace(/^91/, ''),
+    `+91${phoneClean.replace(/^91/, '')}`,
+    `91${phoneClean.replace(/^91/, '')}`,
+  ];
+
+  const dbCustomer = await prisma.customer.findFirst({
+    where: {
+      tenantId,
+      phone: { in: phoneVariants },
+    },
+    include: {
+      addresses: {
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      },
+    },
+  });
+
+  const savedDeliveryAddresses = dbCustomer?.addresses?.map((a) => ({
+    id: a.id,
+    label: a.label || undefined,
+    name: a.recipientName,
+    phone: a.phone,
+    line1: a.line1,
+    line2: a.line2 || undefined,
+    landmark: a.landmark || undefined,
+    city: a.city,
+    state: a.state,
+    pincode: a.pincode,
+    isDefault: a.isDefault,
+  })) || [];
+
+  const defaultSaved = savedDeliveryAddresses.find((a) => a.isDefault) || savedDeliveryAddresses[0];
+
   const preferredAttrs = (customerMemory.preferredAttributes as Record<string, any>) || {};
   const savedDeliveryAddress =
+    defaultSaved ||
     preferredAttrs['savedAddress'] ||
     (lastOrderWithAddress?.deliveryAddress as any) ||
     metadata['pendingDeliveryAddress'] ||
@@ -186,7 +226,8 @@ export async function buildConversationContext(
   const isReturningCustomer = Boolean(
     customerMemory.totalOrders > 0 ||
     customerMemory.isRepeatCustomer ||
-    savedDeliveryAddress
+    savedDeliveryAddress ||
+    savedDeliveryAddresses.length > 0
   );
 
   // 8. Check for incomplete / pending payment order (within last 48 hours)
@@ -255,6 +296,7 @@ export async function buildConversationContext(
     },
     catalogContext: catalogContext || undefined,
     savedDeliveryAddress: savedDeliveryAddress || undefined,
+    savedDeliveryAddresses: savedDeliveryAddresses.length > 0 ? savedDeliveryAddresses : undefined,
     currentDeliveryAddress: currentDeliveryAddress || undefined,
     isReturningCustomer,
     addressConfirmed,

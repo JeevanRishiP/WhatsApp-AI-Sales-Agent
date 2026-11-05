@@ -45,10 +45,15 @@ function formatAddress(addr: any): string {
   if (!addr) return '';
   if (typeof addr === 'string') return addr;
   const lines: string[] = [];
-  if (addr.name) lines.push(`• *Name:* ${addr.name}`);
-  if (addr.address) lines.push(`• *Address:* ${addr.address}`);
-  const cityPin = [addr.city, addr.pincode].filter(Boolean).join(' - ');
-  if (cityPin && !addr.address?.includes(cityPin)) lines.push(`• *City & Pincode:* ${cityPin}`);
+  const name = addr.recipientName || addr.name;
+  if (name) lines.push(`• *Name:* ${name}`);
+  if (addr.phone) lines.push(`• *Phone:* ${addr.phone}`);
+  const line1 = addr.line1 || addr.addressLine1 || addr.address;
+  const line2 = addr.line2 || addr.addressLine2;
+  if (line1) lines.push(`• *Street Address:* ${line1}${line2 ? ', ' + line2 : ''}`);
+  if (addr.landmark) lines.push(`• *Landmark:* ${addr.landmark}`);
+  const cityStatePin = [addr.city, addr.state].filter(Boolean).join(', ') + (addr.pincode ? ` - ${addr.pincode}` : '');
+  if (cityStatePin && !line1?.includes(addr.pincode)) lines.push(`• *City & Pincode:* ${cityStatePin}`);
   return lines.length > 0 ? lines.join('\n') : JSON.stringify(addr);
 }
 
@@ -526,29 +531,98 @@ export class ToolExecutionEngine {
         const bill = computeBill(currentCart);
         const billText = currentCart.items.length > 0 ? `\n\n${formatBillBreakdown(bill)}` : '';
 
-        const lastOrderWithAddress = await prisma.order.findFirst({
+        // Query saved addresses from relational CustomerAddress
+        const phoneClean = conversation.customerPhone.replace(/[^0-9]/g, '');
+        const phoneVariants = [
+          conversation.customerPhone,
+          `+${phoneClean}`,
+          phoneClean,
+          phoneClean.replace(/^91/, ''),
+          `+91${phoneClean.replace(/^91/, '')}`,
+          `91${phoneClean.replace(/^91/, '')}`,
+        ];
+
+        const dbCust = await prisma.customer.findFirst({
           where: {
             tenantId,
-            customerPhone: conversation.customerPhone,
-            deliveryAddress: { not: null as any },
+            phone: { in: phoneVariants },
           },
-          orderBy: { createdAt: 'desc' },
-        });
-
-        const memory = await prisma.customerMemory.findUnique({
-          where: {
-            tenantId_customerPhone: {
-              tenantId,
-              customerPhone: conversation.customerPhone,
+          include: {
+            addresses: {
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
             },
           },
         });
 
-        const preferredAttrs = (memory?.preferredAttributes as Record<string, any>) || {};
-        const savedAddress =
-          preferredAttrs['savedAddress'] ||
-          (lastOrderWithAddress?.deliveryAddress as any) ||
-          undefined;
+        const savedAddrs = dbCust?.addresses || [];
+
+        // If customer has multiple saved addresses:
+        if (savedAddrs.length > 1) {
+          const listText = savedAddrs
+            .map((a, idx) => {
+              const def = a.isDefault ? ' _(Primary Default)_' : '';
+              const line2 = a.line2 ? `, ${a.line2}` : '';
+              const landmark = a.landmark ? ` (Near ${a.landmark})` : '';
+              return `*${idx + 1}️⃣ [${a.label || 'Destination'}]*${def}\n• *Recipient:* ${a.recipientName} (${a.phone})\n• *Address:* ${a.line1}${line2}${landmark}, ${a.city} - ${a.pincode}`;
+            })
+            .join('\n\n');
+
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              stage: 'CHECKOUT_ADDRESS',
+              metadata: {
+                ...(conversation.metadata as object),
+                savedAddressesChoices: savedAddrs,
+              },
+            },
+          });
+
+          return {
+            reply: `📦 *Which delivery address shall we deliver your order to?*\n\n${listText}${billText}\n\n👉 Reply with *1* or *2* (or 'Home'/'Office') to choose, or share a *new delivery address* to deliver elsewhere! 📍`,
+            newStage: 'CHECKOUT_ADDRESS',
+          };
+        }
+
+        let savedAddress: any = null;
+        if (savedAddrs.length === 1) {
+          const s = savedAddrs[0]!;
+          savedAddress = {
+            name: s.recipientName,
+            phone: s.phone,
+            line1: s.line1,
+            line2: s.line2,
+            landmark: s.landmark,
+            city: s.city,
+            state: s.state,
+            pincode: s.pincode,
+            label: s.label,
+          };
+        } else {
+          const lastOrderWithAddress = await prisma.order.findFirst({
+            where: {
+              tenantId,
+              customerPhone: conversation.customerPhone,
+              deliveryAddress: { not: null as any },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          const memory = await prisma.customerMemory.findUnique({
+            where: {
+              tenantId_customerPhone: {
+                tenantId,
+                customerPhone: conversation.customerPhone,
+              },
+            },
+          });
+
+          const preferredAttrs = (memory?.preferredAttributes as Record<string, any>) || {};
+          savedAddress =
+            preferredAttrs['savedAddress'] ||
+            (lastOrderWithAddress?.deliveryAddress as any) ||
+            undefined;
+        }
 
         if (savedAddress) {
           await prisma.conversation.update({
@@ -630,10 +704,84 @@ export class ToolExecutionEngine {
           await prisma.customerMemory.update({
             where: { id: memory.id },
             data: {
-              customerName: targetAddress.name || memory.customerName,
+              customerName: targetAddress.name || targetAddress.recipientName || memory.customerName,
               preferredAttributes: { ...preferredAttrs, savedAddress: targetAddress },
             },
           });
+        }
+
+        // Persist to relational Customer & CustomerAddress
+        try {
+          const phoneClean = conversation.customerPhone.replace(/[^0-9]/g, '');
+          const phoneVariants = [
+            conversation.customerPhone,
+            `+${phoneClean}`,
+            phoneClean,
+            phoneClean.replace(/^91/, ''),
+            `+91${phoneClean.replace(/^91/, '')}`,
+            `91${phoneClean.replace(/^91/, '')}`,
+          ];
+
+          let dbCust = await prisma.customer.findFirst({
+            where: {
+              tenantId,
+              phone: { in: phoneVariants },
+            },
+          });
+
+          if (!dbCust) {
+            dbCust = await prisma.customer.create({
+              data: {
+                tenantId,
+                phone: conversation.customerPhone,
+                name: targetAddress.name || targetAddress.recipientName || null,
+              },
+            });
+          }
+
+          const line1 = targetAddress.line1 || targetAddress.addressLine1 || targetAddress.address || '';
+          const pincode = targetAddress.pincode || '';
+
+          if (line1 && pincode) {
+            const existingCustAddr = await prisma.customerAddress.findFirst({
+              where: {
+                customerId: dbCust.id,
+                line1,
+                pincode,
+              },
+            });
+
+            if (!existingCustAddr) {
+              const hasAnyDefault = await prisma.customerAddress.findFirst({
+                where: { customerId: dbCust.id, isDefault: true },
+              });
+
+              const createdCustAddr = await prisma.customerAddress.create({
+                data: {
+                  customerId: dbCust.id,
+                  label: targetAddress.label || (hasAnyDefault ? 'Delivery Destination' : 'Home'),
+                  recipientName: targetAddress.name || targetAddress.recipientName || dbCust.name || 'Customer',
+                  phone: targetAddress.phone || conversation.customerPhone,
+                  line1,
+                  line2: targetAddress.line2 || targetAddress.addressLine2 || null,
+                  landmark: targetAddress.landmark || null,
+                  city: targetAddress.city || '',
+                  state: targetAddress.state || '',
+                  pincode,
+                  isDefault: !hasAnyDefault,
+                },
+              });
+
+              if (!hasAnyDefault) {
+                await prisma.customer.update({
+                  where: { id: dbCust.id },
+                  data: { defaultAddressId: createdCustAddr.id },
+                });
+              }
+            }
+          }
+        } catch (syncErr: any) {
+          console.warn('[ExecutionEngine] Failed to auto-save to CustomerAddress:', syncErr.message);
         }
 
         const isCheckoutFlow = ['CHECKOUT_ADDRESS', 'CHECKOUT_CONFIRM'].includes(conversation.stage);
@@ -770,29 +918,96 @@ export class ToolExecutionEngine {
 
         // If address not explicitly confirmed, check if customer has a saved address or needs to provide one
         if (!confirmedAddress) {
-          const lastOrderWithAddress = await prisma.order.findFirst({
+          const phoneClean = conversation.customerPhone.replace(/[^0-9]/g, '');
+          const phoneVariants = [
+            conversation.customerPhone,
+            `+${phoneClean}`,
+            phoneClean,
+            phoneClean.replace(/^91/, ''),
+            `+91${phoneClean.replace(/^91/, '')}`,
+            `91${phoneClean.replace(/^91/, '')}`,
+          ];
+
+          const dbCust = await prisma.customer.findFirst({
             where: {
               tenantId,
-              customerPhone: conversation.customerPhone,
-              deliveryAddress: { not: null as any },
+              phone: { in: phoneVariants },
             },
-            orderBy: { createdAt: 'desc' },
-          });
-
-          const memory = await prisma.customerMemory.findUnique({
-            where: {
-              tenantId_customerPhone: {
-                tenantId,
-                customerPhone: conversation.customerPhone,
+            include: {
+              addresses: {
+                orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
               },
             },
           });
 
-          const preferredAttrs = (memory?.preferredAttributes as Record<string, any>) || {};
-          const savedAddress =
-            preferredAttrs['savedAddress'] ||
-            (lastOrderWithAddress?.deliveryAddress as any) ||
-            undefined;
+          const savedAddrs = dbCust?.addresses || [];
+
+          if (savedAddrs.length > 1) {
+            const listText = savedAddrs
+              .map((a, idx) => {
+                const def = a.isDefault ? ' _(Primary Default)_' : '';
+                const line2 = a.line2 ? `, ${a.line2}` : '';
+                const landmark = a.landmark ? ` (Near ${a.landmark})` : '';
+                return `*${idx + 1}️⃣ [${a.label || 'Destination'}]*${def}\n• *Recipient:* ${a.recipientName} (${a.phone})\n• *Address:* ${a.line1}${line2}${landmark}, ${a.city} - ${a.pincode}`;
+              })
+              .join('\n\n');
+
+            await prisma.conversation.update({
+              where: { id: conversation.id },
+              data: {
+                stage: 'CHECKOUT_ADDRESS',
+                metadata: {
+                  ...meta,
+                  savedAddressesChoices: savedAddrs,
+                },
+              },
+            });
+
+            return {
+              reply: `📦 *Which delivery address shall we deliver your order to?*\n\n${listText}\n\n${formatBillBreakdown(bill)}\n\n👉 Reply with *1* or *2* (or 'Home'/'Office') to choose, or share a *new delivery address* to deliver elsewhere! 📍`,
+              newStage: 'CHECKOUT_ADDRESS',
+            };
+          }
+
+          let savedAddress: any = null;
+          if (savedAddrs.length === 1) {
+            const s = savedAddrs[0]!;
+            savedAddress = {
+              name: s.recipientName,
+              phone: s.phone,
+              line1: s.line1,
+              line2: s.line2,
+              landmark: s.landmark,
+              city: s.city,
+              state: s.state,
+              pincode: s.pincode,
+              label: s.label,
+            };
+          } else {
+            const lastOrderWithAddress = await prisma.order.findFirst({
+              where: {
+                tenantId,
+                customerPhone: conversation.customerPhone,
+                deliveryAddress: { not: null as any },
+              },
+              orderBy: { createdAt: 'desc' },
+            });
+
+            const memory = await prisma.customerMemory.findUnique({
+              where: {
+                tenantId_customerPhone: {
+                  tenantId,
+                  customerPhone: conversation.customerPhone,
+                },
+              },
+            });
+
+            const preferredAttrs = (memory?.preferredAttributes as Record<string, any>) || {};
+            savedAddress =
+              preferredAttrs['savedAddress'] ||
+              (lastOrderWithAddress?.deliveryAddress as any) ||
+              undefined;
+          }
 
           if (savedAddress) {
             // RETURNING CUSTOMER: Ask for confirmation of previous delivery details with bill breakdown

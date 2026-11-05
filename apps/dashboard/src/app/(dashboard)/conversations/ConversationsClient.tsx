@@ -1,12 +1,29 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   resolveHandoffAction,
   reopenConversationAction,
   sendAgentReplyAction,
 } from '../../../lib/actions/conversations';
+import {
+  MessageSquare,
+  AlertTriangle,
+  User,
+  Bot,
+  RotateCcw,
+  CheckCircle2,
+  ExternalLink,
+  Send,
+  Sparkles,
+  Clock,
+  Search,
+  ShieldAlert,
+  Phone,
+  ShoppingBag,
+} from 'lucide-react';
+import { AiAgentToggle } from '../../../components/AiAgentToggle';
 
 interface MessageData {
   id: string;
@@ -41,6 +58,17 @@ interface ConversationsClientProps {
   selectedConversation: ConversationItem | null;
 }
 
+function formatMessageTime(dateInput: any): string {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 export function ConversationsClient({
   conversations,
   handoffQueue,
@@ -49,19 +77,71 @@ export function ConversationsClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const [activeTab, setActiveTab] = useState<'all' | 'handoff'>('all');
+  const isInitialHandoff =
+    initialSelected?.stage === 'HUMAN_HANDOFF' ||
+    handoffQueue.some((h) => h.id === initialSelected?.id);
+
+  const [activeTab, setActiveTab] = useState<'all' | 'handoff'>(
+    isInitialHandoff ? 'handoff' : 'all'
+  );
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSelected?.id || conversations[0]?.id || null
   );
+  const [threadSearch, setThreadSearch] = useState('');
   const [replyText, setReplyText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const cardContainerRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const displayList = activeTab === 'handoff' ? handoffQueue : conversations;
+  const rawList = activeTab === 'handoff' ? handoffQueue : conversations;
+  const displayList = rawList.filter((item) => {
+    if (!threadSearch.trim()) return true;
+    const query = threadSearch.toLowerCase();
+    const phone = item.customerPhone.toLowerCase();
+    const name = (item.customer?.customerName || '').toLowerCase();
+    const intent = (item.lastIntent || '').toLowerCase();
+    return phone.includes(query) || name.includes(query) || intent.includes(query);
+  });
+
   const currentChat =
     (initialSelected?.id === selectedId ? initialSelected : null) ||
     conversations.find((c) => c.id === selectedId) ||
     handoffQueue.find((c) => c.id === selectedId) ||
     null;
+
+  // Auto-scroll chat timeline directly within its container without scrolling ancestors
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
+  // Sync selectedId if parent initialSelected changes
+  useEffect(() => {
+    if (initialSelected?.id && initialSelected.id !== selectedId) {
+      setSelectedId(initialSelected.id);
+    }
+  }, [initialSelected?.id]);
+
+  // Keep outer card pinned at top to prevent scroll drift
+  useEffect(() => {
+    if (cardContainerRef.current) {
+      cardContainerRef.current.scrollTop = 0;
+    }
+  }, [selectedId]);
+
+  // Jump to bottom immediately on thread switch
+  useEffect(() => {
+    scrollToBottom('auto');
+  }, [selectedId]);
+
+  // Smooth scroll when new messages are added
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [currentChat?.messages?.length]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -94,7 +174,7 @@ export function ConversationsClient({
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim() || !selectedId) return;
+    if (!replyText.trim() || !selectedId || isPending) return;
 
     const text = replyText;
     setReplyText('');
@@ -107,6 +187,7 @@ export function ConversationsClient({
       const res = await sendAgentReplyAction(selectedId, formData);
       if (res?.error) {
         setErrorMessage(res.error);
+        setReplyText(text); // Restore unsent text
       } else {
         router.refresh();
       }
@@ -115,54 +196,64 @@ export function ConversationsClient({
 
   return (
     <div>
-      {/* Tab Switcher */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button
-          type="button"
-          className={`btn btn-sm ${activeTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('all')}
-        >
-          All Active Threads ({conversations.length})
-        </button>
-        <button
-          type="button"
-          className={`btn btn-sm ${activeTab === 'handoff' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setActiveTab('handoff')}
-          style={{
-            borderColor: handoffQueue.length > 0 ? 'var(--danger)' : undefined,
-            color: handoffQueue.length > 0 && activeTab !== 'handoff' ? 'var(--danger)' : undefined,
-          }}
-        >
-          🚨 Human Handoff Queue ({handoffQueue.length})
-        </button>
+      {/* Top Controls: Tabs and Quick AI Agent Toggle */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('all')}
+            style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
+          >
+            <MessageSquare size={13} />
+            <span>All Active Threads ({conversations.length})</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'handoff' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('handoff')}
+            style={{
+              borderRadius: 'var(--radius-full)',
+              padding: '6px 14px',
+              borderColor: handoffQueue.length > 0 ? '#ef4444' : undefined,
+              color: handoffQueue.length > 0 && activeTab !== 'handoff' ? '#F87171' : undefined,
+              background: handoffQueue.length > 0 && activeTab !== 'handoff' ? 'rgba(239, 68, 68, 0.12)' : undefined,
+              animation: handoffQueue.length > 0 && activeTab !== 'handoff' ? 'handoff-banner-blink 1.4s infinite' : undefined,
+              fontWeight: handoffQueue.length > 0 ? 700 : undefined,
+            }}
+          >
+            <AlertTriangle size={13} style={{ color: handoffQueue.length > 0 ? '#ef4444' : undefined }} />
+            <span>Handoff Queue ({handoffQueue.length})</span>
+          </button>
+        </div>
+
+        {/* Quick AI Agent Status & Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <AiAgentToggle />
+        </div>
       </div>
 
       {errorMessage && (
-        <div
-          style={{
-            padding: '10px 14px',
-            marginBottom: '14px',
-            background: 'var(--danger-bg)',
-            color: 'var(--danger)',
-            border: '1px solid var(--danger)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '0.875rem',
-          }}
-        >
-          {errorMessage}
+        <div className="alert alert-error">
+          <AlertTriangle size={16} />
+          <span>{errorMessage}</span>
         </div>
       )}
 
       {/* Main Inbox Container — Two Columns */}
       <div
+        ref={cardContainerRef}
         className="card"
         style={{
           padding: 0,
           display: 'grid',
-          gridTemplateColumns: '320px 1fr',
-          height: 'calc(100vh - 220px)',
+          gridTemplateColumns: '340px 1fr',
+          height: 'calc(100vh - 215px)',
           minHeight: '520px',
+          maxHeight: 'calc(100vh - 215px)',
           overflow: 'hidden',
+          borderRadius: 'var(--radius-lg)',
         }}
       >
         {/* Left Column: Thread List */}
@@ -171,81 +262,169 @@ export function ConversationsClient({
             borderRight: '1px solid var(--border)',
             display: 'flex',
             flexDirection: 'column',
-            overflowY: 'auto',
+            height: '100%',
+            minHeight: 0,
+            maxHeight: '100%',
+            overflow: 'hidden',
+            background: 'var(--bg-card)',
           }}
         >
-          {displayList.length === 0 ? (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              {activeTab === 'handoff'
-                ? 'No pending human handoffs. AI bot is handling all inquiries smoothly.'
-                : 'No conversations yet.'}
+          {/* Thread Search Box */}
+          <div style={{ padding: '12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div className="search-input-wrapper" style={{ maxWidth: 'none' }}>
+              <span className="search-icon">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search phone or customer..."
+                className="search-input"
+                style={{ padding: '7px 12px 7px 34px', fontSize: '0.8125rem' }}
+                value={threadSearch}
+                onChange={(e) => setThreadSearch(e.target.value)}
+              />
             </div>
-          ) : (
-            displayList.map((item) => {
-              const isSelected = item.id === selectedId;
-              const isHandoff = item.stage === 'HANDOFF';
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => handleSelect(item.id)}
-                  style={{
-                    padding: '14px 16px',
-                    borderBottom: '1px solid var(--border)',
-                    cursor: 'pointer',
-                    background: isSelected
-                      ? 'var(--bg-tertiary)'
-                      : isHandoff
-                      ? 'rgba(234, 67, 53, 0.05)'
-                      : 'transparent',
-                    transition: 'background 0.1s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: isSelected ? 'var(--accent)' : 'inherit' }}>
-                      {item.customer?.customerName || item.customerPhone}
-                    </span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {new Date(item.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
+          </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                    <span
-                      className={`badge ${
-                        isHandoff
-                          ? 'badge-danger'
-                          : item.stage === 'CHECKOUT_CONFIRM'
-                          ? 'badge-success'
-                          : 'badge-info'
-                      }`}
-                      style={{ fontSize: '0.65rem', padding: '1px 6px' }}
-                    >
-                      {item.stage}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {item.messageCount} msg{item.messageCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+            }}
+          >
+            {displayList.length === 0 ? (
+              <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+                <MessageSquare size={24} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                <p>
+                  {activeTab === 'handoff'
+                    ? 'No human handoff pending. AI sales agent is answering all queries autonomously.'
+                    : 'No conversation threads found.'}
+                </p>
+              </div>
+            ) : (
+              displayList.map((item) => {
+                const isSelected = item.id === selectedId;
+                const isHandoff = item.stage === 'HANDOFF';
+                const initial = (item.customer?.customerName || item.customerPhone || 'U').charAt(0).toUpperCase();
 
-                  {item.handoffReason && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '4px', fontWeight: 500 }}>
-                      ⚠️ {item.handoffReason}
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelect(item.id)}
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      background: isSelected
+                        ? 'rgba(99, 102, 241, 0.12)'
+                        : isHandoff
+                        ? 'rgba(239, 68, 68, 0.05)'
+                        : 'transparent',
+                      transition: 'background 0.15s ease',
+                      position: 'relative',
+                    }}
+                  >
+                    {isSelected && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: '3px',
+                          background: 'var(--accent)',
+                        }}
+                      />
+                    )}
+
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: isHandoff ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-tertiary)',
+                          border: `1px solid ${isHandoff ? 'rgba(239, 68, 68, 0.3)' : 'var(--border)'}`,
+                          color: isHandoff ? '#F87171' : 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initial}
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '0.875rem',
+                              color: isSelected ? 'var(--text-primary)' : 'inherit',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.customer?.customerName || item.customerPhone}
+                          </span>
+                          <span
+                            suppressHydrationWarning
+                            style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', flexShrink: 0 }}
+                          >
+                            {formatMessageTime(item.lastMessageAt)}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                          <span
+                            className={`badge ${
+                              isHandoff
+                                ? 'badge-danger'
+                                : item.stage === 'CHECKOUT_CONFIRM'
+                                ? 'badge-success'
+                                : 'badge-neutral'
+                            }`}
+                            style={{ fontSize: '0.625rem', padding: '1px 6px' }}
+                          >
+                            {item.stage}
+                          </span>
+                          <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                            {item.messageCount} msg{item.messageCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        {item.handoffReason && (
+                          <div style={{ fontSize: '0.6875rem', color: '#F87171', marginTop: '4px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            ⚠️ {item.handoffReason}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-
-                  {item.lastIntent && !item.handoffReason && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Intent: {item.lastIntent}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Right Column: Chat History and Actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 0,
+            maxHeight: '100%',
+            overflow: 'hidden',
+            background: 'var(--bg-canvas)',
+          }}
+        >
           {currentChat ? (
             <>
               {/* Chat Header */}
@@ -253,33 +432,41 @@ export function ConversationsClient({
                 style={{
                   padding: '14px 20px',
                   borderBottom: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
+                  background: 'var(--bg-card)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  flexShrink: 0,
                 }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '1.05rem' }}>
-                      {currentChat.customer?.customerName
-                        ? `${currentChat.customer.customerName} (${currentChat.customerPhone})`
-                        : currentChat.customerPhone}
+                    <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                      {currentChat.customer?.customerName || currentChat.customerPhone}
                     </span>
                     <span
                       className={`badge ${
                         currentChat.stage === 'HANDOFF' ? 'badge-danger' : 'badge-info'
                       }`}
+                      style={{ fontSize: '0.6875rem' }}
                     >
                       {currentChat.stage}
                     </span>
                   </div>
-                  {currentChat.customer && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Orders: {currentChat.customer.totalOrders} • Total Spent: ₹
-                      {Number(currentChat.customer.totalSpent).toLocaleString('en-IN')}
-                    </div>
-                  )}
+
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{currentChat.customerPhone}</span>
+                    {currentChat.customer && (
+                      <>
+                        <span>•</span>
+                        <span>Orders: {currentChat.customer.totalOrders}</span>
+                        <span>•</span>
+                        <span>Spent: ₹{Number(currentChat.customer.totalSpent).toLocaleString('en-IN')}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -290,7 +477,8 @@ export function ConversationsClient({
                       onClick={() => handleResolveHandoff(currentChat.id)}
                       disabled={isPending}
                     >
-                      ✅ Resolve Handoff
+                      <CheckCircle2 size={13} />
+                      <span>Resolve Handoff</span>
                     </button>
                   ) : (
                     <button
@@ -300,57 +488,150 @@ export function ConversationsClient({
                       disabled={isPending}
                       title="Reset state to browsing"
                     >
-                      🔄 Reset Conversation
+                      <RotateCcw size={13} />
+                      <span>Reset State</span>
                     </button>
                   )}
+
                   <a
                     href={`https://wa.me/${currentChat.customerPhone.replace(/\D/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary btn-sm"
                   >
-                    Open WhatsApp App ↗
+                    <span>Open in WhatsApp</span>
+                    <ExternalLink size={12} />
                   </a>
                 </div>
               </div>
 
               {/* Message Timeline */}
               <div
+                ref={messagesContainerRef}
                 className="message-list"
-                style={{ flex: 1, overflowY: 'auto', padding: '20px' }}
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  overscrollBehavior: 'contain',
+                  padding: '24px 20px',
+                  maxHeight: 'none',
+                  background: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.03) 0%, transparent 80%)',
+                }}
               >
                 {currentChat.messages && currentChat.messages.length > 0 ? (
-                  currentChat.messages.map((msg) => {
-                    const isUser = msg.role === 'CUSTOMER';
-                    const isSystem = msg.role === 'SYSTEM';
-                    const isAgent = msg.role === 'AGENT';
+                  <>
+                    {currentChat.messages.map((msg) => {
+                      const role = (msg.role || '').toLowerCase();
+                      const isCustomer = role === 'customer' || role === 'user';
+                      const isAgent = role === 'agent' || role === 'merchant' || role === 'human';
+                      const isSystem = role === 'system';
 
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`message-bubble ${
-                          isUser
-                            ? 'message-customer'
-                            : isSystem
-                            ? 'message-system'
-                            : 'message-assistant'
-                        }`}
-                        style={{
-                          background: isAgent ? 'rgba(52, 168, 83, 0.15)' : undefined,
-                          borderColor: isAgent ? 'var(--success)' : undefined,
-                        }}
-                      >
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '3px' }}>
-                          {isUser ? 'Customer' : isAgent ? 'Merchant (You)' : isSystem ? 'System Event' : 'WhatsApp AI Agent'}
+                      return (
+                        <div
+                          key={msg.id}
+                          className="message-bubble"
+                          style={{
+                            alignSelf: isCustomer
+                              ? 'flex-start'
+                              : isSystem
+                              ? 'center'
+                              : 'flex-end',
+                            background: isCustomer
+                              ? '#171C28'
+                              : isAgent
+                              ? '#1E283E'
+                              : isSystem
+                              ? 'rgba(245, 158, 11, 0.1)'
+                              : '#122521',
+                            color: '#F1F5F9',
+                            borderRadius: isCustomer
+                              ? '14px 14px 14px 3px'
+                              : isSystem
+                              ? 'var(--radius-full)'
+                              : '14px 14px 3px 14px',
+                            border: isAgent
+                              ? '1px solid rgba(99, 102, 241, 0.35)'
+                              : isCustomer
+                              ? '1px solid var(--border)'
+                              : isSystem
+                              ? '1px solid rgba(245, 158, 11, 0.25)'
+                              : '1px solid rgba(37, 211, 102, 0.25)',
+                            boxShadow: 'var(--shadow-sm)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 600,
+                              marginBottom: '5px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              color: isCustomer
+                                ? 'var(--text-secondary)'
+                                : isAgent
+                                ? '#818CF8'
+                                : isSystem
+                                ? '#FBBF24'
+                                : '#34D399',
+                            }}
+                          >
+                            {isCustomer ? (
+                              <>
+                                <User size={12} />
+                                <span>{currentChat.customer?.customerName || 'Customer'}</span>
+                              </>
+                            ) : isAgent ? (
+                              <>
+                                <User size={12} />
+                                <span>Store Staff (You)</span>
+                              </>
+                            ) : isSystem ? (
+                              <span>System Event</span>
+                            ) : (
+                              <>
+                                <Bot size={12} />
+                                <span>WhatsApp AI Agent</span>
+                              </>
+                            )}
+
+                            {msg.intent && (
+                              <span
+                                style={{
+                                  fontSize: '0.625rem',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  color: 'var(--text-secondary)',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {msg.intent}
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{msg.content}</div>
+
+                          <div
+                            className="message-time"
+                            style={{
+                              color: 'var(--text-muted)',
+                              textAlign: isCustomer ? 'left' : 'right',
+                              marginTop: '5px',
+                              justifyContent: isCustomer ? 'flex-start' : 'flex-end',
+                            }}
+                          >
+                            <Clock size={10} />
+                            <span suppressHydrationWarning>
+                              {formatMessageTime(msg.createdAt)}
+                            </span>
+                          </div>
                         </div>
-                        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                        <div className="message-time">
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          {msg.intent && ` • ${msg.intent}`}
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })}
+                  </>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No messages recorded in this conversation thread yet.
@@ -362,18 +643,20 @@ export function ConversationsClient({
               <form
                 onSubmit={handleSendReply}
                 style={{
-                  padding: '12px 16px',
+                  padding: '14px 18px',
                   borderTop: '1px solid var(--border)',
-                  background: 'var(--bg-secondary)',
+                  background: 'var(--bg-card)',
                   display: 'flex',
                   gap: '10px',
+                  alignItems: 'center',
+                  flexShrink: 0,
                 }}
               >
                 <input
                   type="text"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Type an official message to reply directly to the customer on WhatsApp..."
+                  placeholder="Type an official reply to message customer on WhatsApp..."
                   className="form-input"
                   style={{ flex: 1 }}
                 />
@@ -381,8 +664,10 @@ export function ConversationsClient({
                   type="submit"
                   className="btn btn-primary"
                   disabled={!replyText.trim() || isPending}
+                  style={{ padding: '8px 18px' }}
                 >
-                  {isPending ? 'Sending...' : 'Send Message'}
+                  <Send size={14} />
+                  <span>{isPending ? 'Sending...' : 'Send'}</span>
                 </button>
               </form>
             </>
@@ -390,14 +675,16 @@ export function ConversationsClient({
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 height: '100%',
                 color: 'var(--text-muted)',
-                fontSize: '0.9rem',
+                gap: '8px',
               }}
             >
-              Select a conversation from the left to inspect messages and assist customers.
+              <MessageSquare size={32} style={{ opacity: 0.3 }} />
+              <p style={{ fontSize: '0.875rem' }}>Select a conversation from the left to view messages.</p>
             </div>
           )}
         </div>

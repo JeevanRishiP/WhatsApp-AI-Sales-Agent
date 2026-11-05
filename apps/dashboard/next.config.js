@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Transpile workspace packages so Next.js can process them
-  transpilePackages: ['@wcos/db', '@wcos/types'],
+  transpilePackages: ['@wcos/db', '@wcos/types', '@wcos/payments'],
 
   // Enable server actions
   experimental: {

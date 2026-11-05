@@ -9,10 +9,11 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId } from '../auth';
+import { getTenantId, getSession } from '../auth';
 import { updateCustomerDetails } from '../dal/customers';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
+import { sendWhatsAppTextMessage } from '../whatsapp';
 
 export interface CustomerActionState {
   error?: string;
@@ -28,13 +29,15 @@ const UpdateCustomerSchema = z.object({
   merchantNotes: z.string().max(2000).optional(),
   merchantTags: z.string().optional(), // Comma-separated
   preferredCategories: z.string().optional(), // Comma-separated
+  vipTier: z.string().optional(),
+  reason: z.string().max(500).optional(),
 });
 
 export async function updateCustomerProfileAction(
   prevState: CustomerActionState,
   formData: FormData
 ): Promise<CustomerActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
 
   const rawData = {
     customerId: formData.get('customerId') as string,
@@ -44,6 +47,8 @@ export async function updateCustomerProfileAction(
     merchantNotes: (formData.get('merchantNotes') as string) || undefined,
     merchantTags: (formData.get('merchantTags') as string) || undefined,
     preferredCategories: (formData.get('preferredCategories') as string) || undefined,
+    vipTier: (formData.get('vipTier') as string) || undefined,
+    reason: (formData.get('reason') as string) || undefined,
   };
 
   const parsed = UpdateCustomerSchema.safeParse(rawData);
@@ -59,6 +64,8 @@ export async function updateCustomerProfileAction(
     merchantNotes,
     merchantTags,
     preferredCategories,
+    vipTier,
+    reason,
   } = parsed.data;
 
   try {
@@ -70,7 +77,7 @@ export async function updateCustomerProfileAction(
       ? preferredCategories.split(',').map((c) => c.trim()).filter(Boolean)
       : undefined;
 
-    await updateCustomerDetails(tenantId, customerId, {
+    await updateCustomerDetails(session.tenantId, customerId, {
       customerName,
       preferredLanguage,
       merchantNotes,
@@ -78,8 +85,36 @@ export async function updateCustomerProfileAction(
       preferredCategories: categoriesArray,
     });
 
+    if (vipTier) {
+      await prisma.customer.updateMany({
+        where: { tenantId: session.tenantId, phone: customerPhone },
+        data: { vipTier },
+      });
+    }
+
+    // Record immutable audit trail entry
+    await prisma.dataRevisionLog.create({
+      data: {
+        tenantId: session.tenantId,
+        entityType: 'CUSTOMER',
+        entityId: customerId,
+        action: 'CUSTOMER_UPDATE',
+        staffId: session.staffId,
+        staffName: session.staffName || 'Staff',
+        staffRole: session.role,
+        actorType: 'STAFF',
+        reason: reason || 'Customer profile notes or preferences updated by staff',
+        diffSummary: {
+          name: customerName,
+          vipTier,
+          tags: tagsArray,
+        },
+      },
+    }).catch((err) => console.error('[AuditLog] Failed to record customer update:', err));
+
     revalidatePath('/customers');
     revalidatePath(`/customers/${encodeURIComponent(customerPhone)}`);
+    revalidatePath('/audit');
 
     return { success: true, message: 'Customer profile updated successfully' };
   } catch (err: any) {
@@ -135,7 +170,18 @@ export async function sendCustomerDirectMessageAction(
       });
     }
 
-    // 2. Insert message as agent
+    // 2. Dispatch real-time WhatsApp message via Evolution API
+    const dispatchResult = await sendWhatsAppTextMessage({
+      tenantId,
+      toPhone: customerPhone,
+      text: message.trim(),
+    });
+
+    if (!dispatchResult.success) {
+      return { error: dispatchResult.error || 'Failed to send WhatsApp message' };
+    }
+
+    // 3. Insert message as agent with WhatsApp message ID
     await prisma.message.create({
       data: {
         tenantId,
@@ -143,10 +189,11 @@ export async function sendCustomerDirectMessageAction(
         role: 'agent',
         content: message.trim(),
         messageType: 'text',
+        whatsappMessageId: dispatchResult.messageId || null,
       },
     });
 
-    // 3. Update conversation stats
+    // 4. Update conversation stats
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {

@@ -28,8 +28,14 @@ export interface ModelEntry {
  * If absent, the global env defaults are used.
  */
 export interface TenantAiConfig {
+  /** Master switch: whether the automated WhatsApp AI sales agent is active (defaults to true) */
+  aiAgentEnabled?: boolean;
+  /** Custom offline message template when AI agent is disabled */
+  offlineMessage?: string;
+  /** Direct support phone number to display when AI agent is offline */
+  offlineSupportPhone?: string;
   /** Ordered priority list — first enabled entry is tried first */
-  priorityList: ModelEntry[];
+  priorityList?: ModelEntry[];
   /** Optional per-tenant API key overrides */
   keys?: ProviderKeys;
 }

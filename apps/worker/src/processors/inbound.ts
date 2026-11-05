@@ -5,7 +5,7 @@ import {
   enqueueOutboundMessage,
   scheduleFollowUp,
 } from '@wcos/queue';
-import { aiGateway, isAddressConfirmation } from '@wcos/ai';
+import { aiGateway, isAddressConfirmation, matchSavedAddressSelection } from '@wcos/ai';
 import { ConversationLock } from '../lock/conversation-lock.js';
 import { CartService } from '../cart/cart-service.js';
 import { ToolExecutionEngine } from '../tools/execution-engine.js';
@@ -204,7 +204,46 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
       preferredCategories: customerMemory?.preferredCategories || [],
       ...memAttribs,
     };
-    const savedAddress = (memAttribs['savedAddress'] as Record<string, any>) || null;
+
+    // Query saved addresses from CustomerAddress
+    const phoneClean = customerPhone.replace(/[^0-9]/g, '');
+    const phoneVariants = [
+      customerPhone,
+      `+${phoneClean}`,
+      phoneClean,
+      phoneClean.replace(/^91/, ''),
+      `+91${phoneClean.replace(/^91/, '')}`,
+      `91${phoneClean.replace(/^91/, '')}`,
+    ];
+
+    const dbCustomer = await prisma.customer.findFirst({
+      where: {
+        tenantId,
+        phone: { in: phoneVariants },
+      },
+      include: {
+        addresses: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+
+    const savedDeliveryAddresses = dbCustomer?.addresses?.map((a) => ({
+      id: a.id,
+      label: a.label || undefined,
+      name: a.recipientName,
+      phone: a.phone,
+      line1: a.line1,
+      line2: a.line2 || undefined,
+      landmark: a.landmark || undefined,
+      city: a.city,
+      state: a.state,
+      pincode: a.pincode,
+      isDefault: a.isDefault,
+    })) || [];
+
+    const defaultSaved = savedDeliveryAddresses.find((a) => a.isDefault) || savedDeliveryAddresses[0];
+    const savedAddress = defaultSaved || (memAttribs['savedAddress'] as Record<string, any>) || null;
     const convoMeta = (conversation.metadata as Record<string, any>) || {};
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -218,6 +257,65 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
     const rawButtonPayload = message.buttonPayload?.trim();
     const buttonId = rawButtonPayload?.toLowerCase();
     const lastAssistantMsg = history.filter((h) => h.role === 'assistant').slice(-1)[0]?.content || '';
+
+    // Check if customer explicitly chose one of their saved addresses (e.g. "1", "2", "home", "office")
+    const matchedAddressFromSelection =
+      savedDeliveryAddresses.length > 0
+        ? matchSavedAddressSelection(userText, savedDeliveryAddresses)
+        : null;
+
+    if (
+      matchedAddressFromSelection &&
+      (['CHECKOUT_ADDRESS', 'CHECKOUT_CONFIRM'].includes(conversation.stage) || cart.items.length > 0)
+    ) {
+      const storedCartForBtn: StoredCart = {
+        items: cart.items.map((i): CartItemData => ({
+          productId: i.productId,
+          productCode: i.productCode,
+          name: i.productName,
+          quantity: i.quantity,
+          price: i.priceAtAdd,
+          imageUrl: i.imageUrl,
+        })),
+        subtotal: cart.subtotal,
+      };
+      const conversationCtxForBtn = {
+        ...conversation,
+        metadata: {
+          ...convoMeta,
+          customerName: message.customerName,
+          customerPlatform: convoMeta['customerPlatform'] || 'web',
+          deliveryAddress: matchedAddressFromSelection,
+          addressConfirmed: true,
+        },
+      };
+
+      const btnAction = {
+        action: 'INITIATE_CHECKOUT',
+        deliveryAddress: matchedAddressFromSelection,
+        reply: `Delivering to *${matchedAddressFromSelection.label || 'your saved address'}* (${matchedAddressFromSelection.line1}, ${matchedAddressFromSelection.city})! Preparing your secure payment link... ✨`,
+      };
+
+      try {
+        const execResult = await ToolExecutionEngine.execute(
+          tenantId,
+          conversationCtxForBtn,
+          storedCartForBtn,
+          btnAction as any
+        );
+        const finalBtnReply = execResult.reply || (btnAction['reply'] as string);
+        if (execResult.newStage === 'AWAITING_PAYMENT') {
+          await scheduleFollowUp(
+            { tenantId, customerId: conversation.id, sessionId: conversation.id, followUpType: 'payment_reminder_15m' },
+            15 * 60 * 1000
+          );
+        }
+        await saveAndSend(tenantId, conversation.id, customerPhone, finalBtnReply, 'INITIATE_CHECKOUT');
+        return;
+      } catch (selErr: any) {
+        console.error('[InboundProcessor] Address selection dispatch error:', selErr.message);
+      }
+    }
 
     const isTextAddressConfirmation = isAddressConfirmation(
       userText,
@@ -343,8 +441,9 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
         currentStage: conversation.stage,
         customerName: message.customerName,
         customerPreferences: Object.keys(memPrefs).length > 0 ? memPrefs : undefined,
-        isReturningCustomer: !!savedAddress,
+        isReturningCustomer: !!savedAddress || savedDeliveryAddresses.length > 0,
         savedDeliveryAddress: savedAddress || undefined,
+        savedDeliveryAddresses: savedDeliveryAddresses.length > 0 ? savedDeliveryAddresses : undefined,
         addressConfirmed: convoMeta['addressConfirmed'] === true,
         currentDeliveryAddress: convoMeta['deliveryAddress'] || convoMeta['pendingDeliveryAddress'] || undefined,
         pendingOrderSummary,

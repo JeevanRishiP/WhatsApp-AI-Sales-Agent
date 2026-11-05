@@ -21,10 +21,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorUrl);
     }
 
+    // Find Owner staff record
+    const { prisma } = await import('@wcos/db');
+    const staff = await prisma.staffUser.findFirst({
+      where: { tenantId: tenant.id, role: 'OWNER' },
+    });
+
     const token = await new SignJWT({
       tenantId: tenant.id,
       tenantName: tenant.name,
-      email: tenant.ownerEmail,
+      email: staff?.email || tenant.ownerEmail,
+      staffId: staff?.id,
+      staffName: staff?.fullName || tenant.ownerName || 'Jeevan Rishi P',
+      role: 'OWNER',
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -44,8 +53,9 @@ export async function GET(request: NextRequest) {
     });
 
     return response;
-  } catch (err) {
-    const errorUrl = new URL('/login?error=auth_failed', request.url);
+  } catch (err: any) {
+    console.error('[demo-login error]', err);
+    const errorUrl = new URL(`/login?error=auth_failed&msg=${encodeURIComponent(err.message || 'unknown')}`, request.url);
     return NextResponse.redirect(errorUrl);
   }
 }

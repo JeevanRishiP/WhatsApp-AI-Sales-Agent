@@ -17,7 +17,9 @@ const EnvSchema = z.object({
     .string()
     .length(64, 'ENCRYPTION_MASTER_KEY must be a 64-character hex string (32 bytes)')
     .default('000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'),
+  EVOLUTION_API_URL: z.string().default('http://localhost:8080'),
   EVOLUTION_API_GLOBAL_KEY: z.string().default('429683C4C97CA36CA8211152D4C54'),
+  JWT_SECRET: z.string().default('wcos-customer-jwt-secret-key-change-in-production-2026'),
   ADMIN_API_KEY: z.string().default('wcos-admin-secret-key-change-in-production'),
   APP_BASE_URL: z.string().default('http://localhost:3002'),
 });

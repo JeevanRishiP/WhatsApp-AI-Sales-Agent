@@ -9,7 +9,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { getTenantId } from '@/lib/auth';
-import { updateProfile, updatePersona, updateAiConfig, updateWhatsAppSettings } from '@/lib/dal/settings';
+import {
+  updateProfile,
+  updatePersona,
+  updateAiConfig,
+  updateWhatsAppSettings,
+  toggleAiAgent,
+  updateOfflineSettings,
+} from '@/lib/dal/settings';
 import { z } from 'zod';
 
 export interface SettingsActionState {
@@ -196,4 +203,66 @@ export async function updateWhatsAppSettingsAction(
 
   revalidatePath('/settings');
   return { success: true };
+}
+
+// ─── Toggle WhatsApp AI Sales Agent ────────────────────────────────
+
+export async function toggleAiAgentAction(
+  enabled: boolean
+): Promise<{ success: boolean; aiAgentEnabled: boolean; error?: string }> {
+  const tenantId = await getTenantId();
+
+  try {
+    const updated = await toggleAiAgent(tenantId, enabled);
+    revalidatePath('/', 'layout');
+    revalidatePath('/settings');
+    revalidatePath('/conversations');
+    return { success: true, aiAgentEnabled: updated };
+  } catch (err: any) {
+    return {
+      success: false,
+      aiAgentEnabled: !enabled,
+      error: err.message || 'Failed to toggle AI agent status',
+    };
+  }
+}
+
+// ─── Update Offline Auto-Reply Settings ───────────────────────────
+
+const OfflineSettingsSchema = z.object({
+  aiAgentEnabled: z.boolean().optional(),
+  offlineSupportPhone: z.string().max(20).optional(),
+  offlineMessage: z.string().max(1000).optional(),
+});
+
+export async function updateOfflineSettingsAction(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const tenantId = await getTenantId();
+
+  const enabledRaw = formData.get('aiAgentEnabled');
+  const aiAgentEnabled = enabledRaw !== null ? enabledRaw === 'true' || enabledRaw === 'on' : undefined;
+  const offlineSupportPhone = formData.get('offlineSupportPhone');
+  const offlineMessage = formData.get('offlineMessage');
+
+  const parsed = OfflineSettingsSchema.safeParse({
+    aiAgentEnabled,
+    offlineSupportPhone: typeof offlineSupportPhone === 'string' ? offlineSupportPhone.trim() : undefined,
+    offlineMessage: typeof offlineMessage === 'string' ? offlineMessage.trim() : undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message || 'Invalid offline settings' };
+  }
+
+  try {
+    await updateOfflineSettings(tenantId, parsed.data);
+    revalidatePath('/', 'layout');
+    revalidatePath('/settings');
+    revalidatePath('/conversations');
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to update offline settings' };
+  }
 }

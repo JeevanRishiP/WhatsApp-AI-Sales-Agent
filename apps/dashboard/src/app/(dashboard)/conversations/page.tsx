@@ -4,6 +4,7 @@ import {
   getHandoffQueue,
   getConversationDetail,
 } from '../../../lib/dal';
+import { prisma } from '@wcos/db';
 import { ConversationsClient } from './ConversationsClient';
 
 interface ConversationsPageProps {
@@ -30,9 +31,46 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
     selectedConversation = await getConversationDetail(session.tenantId, targetId);
   }
 
+  // Fetch customer memory for all conversations to display customer names in threads
+  const allPhones = Array.from(
+    new Set([
+      ...conversationsResult.items.map((c) => c.customerPhone),
+      ...handoffQueue.map((c) => c.customerPhone),
+    ])
+  );
+
+  const memories = await prisma.customerMemory.findMany({
+    where: {
+      tenantId: session.tenantId,
+      customerPhone: { in: allPhones },
+    },
+    select: {
+      customerPhone: true,
+      customerName: true,
+      totalOrders: true,
+      totalSpent: true,
+    },
+  });
+
+  const memoryMap = new Map(memories.map((m) => [m.customerPhone, m]));
+
+  const mapConversationWithCustomer = (c: any) => {
+    const mem = memoryMap.get(c.customerPhone);
+    return {
+      ...c,
+      customer: mem
+        ? {
+            customerName: mem.customerName,
+            totalOrders: mem.totalOrders,
+            totalSpent: Number(mem.totalSpent),
+          }
+        : null,
+    };
+  };
+
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="page-container" style={{ paddingBottom: '20px' }}>
+      <div className="page-header" style={{ marginBottom: '14px' }}>
         <div>
           <h1 className="page-title">WhatsApp AI Inbox & Handoffs</h1>
           <p className="page-subtitle">
@@ -42,14 +80,8 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
       </div>
 
       <ConversationsClient
-        conversations={conversationsResult.items.map((c) => ({
-          ...c,
-          customer: null,
-        }))}
-        handoffQueue={handoffQueue.map((c) => ({
-          ...c,
-          customer: null,
-        }))}
+        conversations={conversationsResult.items.map(mapConversationWithCustomer)}
+        handoffQueue={handoffQueue.map(mapConversationWithCustomer)}
         selectedConversation={
           selectedConversation
             ? {

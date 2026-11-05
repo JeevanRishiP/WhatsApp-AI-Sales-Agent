@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useCallback } from 'react';
+import { useState, useTransition, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   updateProfileAction,
@@ -8,8 +8,33 @@ import {
   testRazorpayConnectionAction,
   updateAiConfigAction,
   updateWhatsAppSettingsAction,
+  toggleAiAgentAction,
+  updateOfflineSettingsAction,
 } from '../../../lib/actions/settings';
 import { changePasswordAction } from '../../../lib/actions/auth';
+import {
+  Store,
+  Smartphone,
+  Bot,
+  Lock,
+  CreditCard,
+  Zap,
+  Brain,
+  Copy,
+  Check,
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Key,
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  Power,
+  PhoneCall,
+  MessageSquare,
+  Globe,
+} from 'lucide-react';
 
 interface AiModelEntry {
   provider: 'google' | 'openai' | 'anthropic';
@@ -31,6 +56,7 @@ interface TenantProfileData {
   whatsappPhoneNumber: string | null;
   persona: any;
   aiConfig: any;
+  slug?: string | null;
   monthlyMessageCount: number;
   monthlyMessageLimit: number;
 }
@@ -71,6 +97,96 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   const [profileMessage, setProfileMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [botMessage, setBotMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [securityMessage, setSecurityMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  // ─── AI Agent Offline State & Master Switch ─────────────────────
+  const initialAgentEnabled = tenant.aiConfig?.aiAgentEnabled !== false;
+  const [aiAgentEnabled, setAiAgentEnabled] = useState<boolean>(initialAgentEnabled);
+  const [offlinePhone, setOfflinePhone] = useState<string>(tenant.aiConfig?.offlineSupportPhone || '8105845527');
+  const [offlineTemplate, setOfflineTemplate] = useState<string>(
+    tenant.aiConfig?.offlineMessage ||
+    `Hello! 👋 Thank you for reaching out to {storeName}.\n\n` +
+    `Our automated WhatsApp sales assistant is currently offline at the moment. 🌙\n\n` +
+    `🛍️ *Continue Shopping On Our Website:*\n` +
+    `You can browse our complete collection and place orders online anytime on our store:\n` +
+    `👉 {websiteUrl}\n\n` +
+    `📞 *Have Any Queries or Need Assistance?*\n` +
+    `For any questions, order updates, or personal styling, please reach us directly at:\n` +
+    `📲 {supportPhone} (Call / WhatsApp)\n\n` +
+    `We appreciate your patience and look forward to serving you! ✨`
+  );
+  const [offlineStatusMessage, setOfflineStatusMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  const [storefrontUrl, setStorefrontUrl] = useState<string>(
+    `http://localhost:3005/${tenant.slug || 'aura-luxe'}`
+  );
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const port = '3005';
+      setStorefrontUrl(
+        `${window.location.protocol}//${window.location.hostname}:${port}/${tenant.slug || 'aura-luxe'}`
+      );
+    }
+  }, [tenant.slug]);
+
+  const cleanOfflinePhone = String(offlinePhone || '').trim();
+  const formattedPreviewPhone =
+    cleanOfflinePhone.length === 10
+      ? `+91 ${cleanOfflinePhone.slice(0, 5)} ${cleanOfflinePhone.slice(5)}`
+      : cleanOfflinePhone;
+
+  const renderedPreview = String(offlineTemplate || '')
+    .replace(/{storeName}/g, tenant.name || 'Aura Luxe Boutique')
+    .replace(/{websiteUrl}/g, storefrontUrl)
+    .replace(/{supportPhone}/g, formattedPreviewPhone);
+
+  const handleToggleAiAgent = async () => {
+    const next = !aiAgentEnabled;
+    setAiAgentEnabled(next);
+    setOfflineStatusMessage(null);
+
+    startTransition(async () => {
+      const res = await toggleAiAgentAction(next);
+      if (res?.success) {
+        setOfflineStatusMessage({
+          type: 'success',
+          text: next
+            ? '✅ WhatsApp AI Agent is now ONLINE and answering customer messages.'
+            : '⏸️ WhatsApp AI Agent is now PAUSED. The offline response with your phone number and website link will be sent to customers.',
+        });
+        router.refresh();
+      } else {
+        setAiAgentEnabled(!next);
+        setOfflineStatusMessage({
+          type: 'error',
+          text: res?.error || 'Failed to toggle AI agent.',
+        });
+      }
+    });
+  };
+
+  const handleSaveOfflineSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOfflineStatusMessage(null);
+
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.append('aiAgentEnabled', String(aiAgentEnabled));
+      fd.append('offlineSupportPhone', offlinePhone);
+      fd.append('offlineMessage', offlineTemplate);
+
+      const res = await updateOfflineSettingsAction({}, fd);
+      if (res?.error) {
+        setOfflineStatusMessage({ type: 'error', text: res.error });
+      } else {
+        setOfflineStatusMessage({
+          type: 'success',
+          text: '✅ Offline auto-reply message and support phone number saved successfully!',
+        });
+        router.refresh();
+      }
+    });
+  };
 
   // ─── AI Config State ─────────────────────────────────────────────
 
@@ -237,111 +353,108 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <button
           type="button"
-          className={`btn ${activeTab === 'profile' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'profile' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('profile')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          🏢 Business Profile
+          <Store size={13} />
+          <span>Business Profile</span>
         </button>
         <button
           type="button"
           id="tab-btn-whatsapp"
           data-testid="tab-btn-whatsapp"
-          className={`btn ${activeTab === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'whatsapp' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('whatsapp')}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          📱 WhatsApp Connection
+          <Smartphone size={13} />
+          <span>WhatsApp Cloud</span>
           <span
             style={{
-              marginLeft: '6px',
-              fontSize: '0.6875rem',
-              padding: '2px 6px',
+              marginLeft: '4px',
+              fontSize: '0.625rem',
+              padding: '1px 6px',
               borderRadius: '9999px',
               background: tenant.whatsappPhoneNumber ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
               color: tenant.whatsappPhoneNumber ? '#4ade80' : '#facc15',
-              fontWeight: 600,
+              fontWeight: 700,
               pointerEvents: 'none',
             }}
           >
-            {tenant.whatsappPhoneNumber ? 'Active' : 'Setup'}
+            {tenant.whatsappPhoneNumber ? 'ACTIVE' : 'SETUP'}
           </span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'bot' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'bot' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('bot')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          🤖 WhatsApp Bot Persona
+          <Bot size={13} />
+          <span>Bot Persona</span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'security' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'security' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('security')}
+          style={{ borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          🔒 Security & API Key
+          <Lock size={13} />
+          <span>Security & API Key</span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'payments' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'payments' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('payments')}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          💳 Razorpay Gateway
+          <CreditCard size={13} />
+          <span>Razorpay</span>
           <span
             style={{
-              marginLeft: '6px',
-              fontSize: '0.6875rem',
-              padding: '2px 6px',
+              marginLeft: '4px',
+              fontSize: '0.625rem',
+              padding: '1px 6px',
               borderRadius: '9999px',
               background: 'rgba(34, 197, 94, 0.2)',
               color: '#4ade80',
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
-            Sandbox
+            SANDBOX
           </span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'phonepe' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'phonepe' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('phonepe')}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          💜 PhonePe Gateway
+          <Zap size={13} />
+          <span>PhonePe</span>
           <span
             style={{
-              marginLeft: '6px',
-              fontSize: '0.6875rem',
-              padding: '2px 6px',
+              marginLeft: '4px',
+              fontSize: '0.625rem',
+              padding: '1px 6px',
               borderRadius: '9999px',
               background: 'rgba(124, 58, 237, 0.2)',
               color: '#a78bfa',
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
-            Mobile Primary
+            UPI FAST
           </span>
         </button>
         <button
           type="button"
-          className={`btn ${activeTab === 'ai' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${activeTab === 'ai' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('ai')}
-          style={{ position: 'relative' }}
+          style={{ position: 'relative', borderRadius: 'var(--radius-full)', padding: '6px 14px' }}
         >
-          🧠 AI Models
-          <span
-            style={{
-              marginLeft: '6px',
-              fontSize: '0.6875rem',
-              padding: '2px 6px',
-              borderRadius: '9999px',
-              background: 'rgba(66,133,244,0.2)',
-              color: '#60a5fa',
-              fontWeight: 600,
-            }}
-          >
-            Priority
-          </span>
+          <Brain size={13} />
+          <span>Multi-LLM Routing</span>
         </button>
       </div>
 
@@ -409,6 +522,53 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
             {usagePercent}% quota utilized
           </span>
+        </div>
+
+        {/* WhatsApp AI Agent Master Quick Switch */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              WhatsApp AI Agent Switch
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <span className={aiAgentEnabled ? 'pulse-dot' : 'pulse-dot-amber'} />
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  color: aiAgentEnabled ? '#4ade80' : '#facc15',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {aiAgentEnabled ? 'ONLINE / ACTIVE' : 'PAUSED / OFFLINE'}
+              </span>
+            </div>
+            <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', marginTop: '3px', marginBottom: 0, lineHeight: 1.3 }}>
+              {aiAgentEnabled
+                ? 'Autonomous sales agent actively replying to customers'
+                : 'Offline auto-reply with direct phone support active'}
+            </p>
+          </div>
+
+          <div style={{ marginTop: '8px' }}>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={handleToggleAiAgent}
+              className={`btn btn-xs ${aiAgentEnabled ? 'btn-danger' : 'btn-success'}`}
+              style={{
+                borderRadius: 'var(--radius-full)',
+                padding: '4px 12px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Power size={11} />
+              <span>{isPending ? 'Updating...' : aiAgentEnabled ? 'Switch Agent OFF' : 'Switch Agent ON'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -518,15 +678,233 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
 
       {/* Tab: WhatsApp Connection & Number Configuration */}
       {activeTab === 'whatsapp' && (
-        <div className="card" style={{ maxWidth: '720px' }}>
-          <div className="card-header">
-            <div>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>WhatsApp Connection &amp; Number Configuration</h2>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                Configure your store&apos;s dedicated Evolution API WhatsApp business number and instance identifier.
-              </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '760px' }}>
+          {/* Card 1: WhatsApp AI Sales Agent Master Switch & Offline Mode */}
+          <div className="card" style={{ border: aiAgentEnabled ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(245, 158, 11, 0.45)' }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Bot size={18} style={{ color: aiAgentEnabled ? 'var(--whatsapp)' : 'var(--warning)' }} />
+                  <h2 style={{ fontSize: '1.125rem', fontWeight: 700 }}>WhatsApp AI Sales Agent Master Switch</h2>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Enable or pause autonomous AI replies on WhatsApp. When paused, incoming customer messages receive your automated offline reply.
+                </p>
+              </div>
+
+              {/* Master Status Badge */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 12px',
+                  borderRadius: 'var(--radius-full)',
+                  background: aiAgentEnabled ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                  border: `1px solid ${aiAgentEnabled ? 'rgba(34, 197, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                  color: aiAgentEnabled ? '#4ade80' : '#facc15',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <span className={aiAgentEnabled ? 'pulse-dot' : 'pulse-dot-amber'} />
+                <span>{aiAgentEnabled ? 'AI AGENT: ONLINE' : 'AI AGENT: PAUSED'}</span>
+              </div>
             </div>
+
+            {offlineStatusMessage && (
+              <div
+                style={{
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  background: offlineStatusMessage.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)',
+                  color: offlineStatusMessage.type === 'error' ? 'var(--danger)' : 'var(--success)',
+                  border: `1px solid ${offlineStatusMessage.type === 'error' ? 'var(--danger)' : 'var(--success)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <span>{offlineStatusMessage.type === 'error' ? '❌' : '✅'}</span>
+                <span>{offlineStatusMessage.text}</span>
+              </div>
+            )}
+
+            {/* Toggle Action Banner */}
+            <div
+              style={{
+                padding: '16px',
+                marginBottom: '20px',
+                borderRadius: 'var(--radius-md)',
+                background: aiAgentEnabled ? 'rgba(34, 197, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                border: `1px solid ${aiAgentEnabled ? 'rgba(34, 197, 94, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              <div style={{ flex: 1, minWidth: '240px' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: aiAgentEnabled ? '#4ade80' : '#facc15', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{aiAgentEnabled ? '🟢 Autonomous Sales Mode Active' : '⏸️ Offline Auto-Responder Active'}</span>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                  {aiAgentEnabled
+                    ? 'The AI agent is actively chatting with customers, querying catalog stock, building shopping carts, and sharing checkout links.'
+                    : 'The AI agent is currently switched OFF. Any incoming customer WhatsApp messages will instantly receive the courteous offline notice below with your contact number and website link.'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={handleToggleAiAgent}
+                className={`btn ${aiAgentEnabled ? 'btn-danger' : 'btn-success'}`}
+                style={{
+                  minWidth: '170px',
+                  borderRadius: 'var(--radius-full)',
+                  padding: '8px 18px',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Power size={14} />
+                <span>{isPending ? 'Updating...' : aiAgentEnabled ? 'Switch Agent OFF' : 'Switch Agent ON'}</span>
+              </button>
+            </div>
+
+            {/* Offline Auto-Reply Settings Form */}
+            <form onSubmit={handleSaveOfflineSettings}>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                <div style={{ marginBottom: '14px' }}>
+                  <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MessageSquare size={15} style={{ color: 'var(--accent)' }} />
+                    <span>Customer Offline Auto-Reply Configuration</span>
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    When the AI sales agent is switched off, customers who send a message will automatically receive this message.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <PhoneCall size={13} style={{ color: 'var(--accent)' }} />
+                      <span>Direct Support Contact Number *</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={offlinePhone}
+                      onChange={(e) => setOfflinePhone(e.target.value)}
+                      placeholder="e.g. 8105845527"
+                      className="form-input"
+                      style={{ fontFamily: 'var(--font-mono)' }}
+                      required
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      Customers will be advised to contact this phone number for urgent queries.
+                    </span>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Globe size={13} style={{ color: 'var(--accent)' }} />
+                      <span>Online Storefront Link</span>
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={storefrontUrl}
+                      className="form-input"
+                      style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                      Auto-injected into the offline message as the destination for online orders.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>
+                      Offline Message Template
+                    </label>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                      Available tokens: <code>{'{storeName}'}</code>, <code>{'{websiteUrl}'}</code>, <code>{'{supportPhone}'}</code>
+                    </span>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={offlineTemplate}
+                    onChange={(e) => setOfflineTemplate(e.target.value)}
+                    className="form-textarea"
+                    style={{ lineHeight: 1.5, fontSize: '0.8125rem' }}
+                    placeholder="Enter offline message..."
+                  />
+                </div>
+
+                {/* WhatsApp Chat Bubble Live Preview */}
+                <div style={{ marginBottom: '20px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                    📱 Live WhatsApp Customer Preview
+                  </span>
+                  <div
+                    style={{
+                      background: '#0b141a',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '16px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: '#1f2c34',
+                        color: '#e9edef',
+                        borderRadius: '8px 8px 8px 2px',
+                        padding: '10px 14px',
+                        maxWidth: '90%',
+                        fontSize: '0.8125rem',
+                        lineHeight: 1.55,
+                        whiteSpace: 'pre-line',
+                        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                        position: 'relative',
+                      }}
+                    >
+                      {renderedPreview}
+                      <div style={{ textAlign: 'right', marginTop: '6px', fontSize: '0.6875rem', color: '#8696a0' }}>
+                        10:30 PM ✓✓
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" disabled={isPending}>
+                    {isPending ? 'Saving Settings...' : 'Save Offline Settings'}
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
+
+          {/* Card 2: WhatsApp Connection & Number Configuration */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>WhatsApp Connection &amp; Number Configuration</h2>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                  Configure your store&apos;s dedicated Evolution API WhatsApp business number and instance identifier.
+                </p>
+              </div>
+            </div>
 
           {whatsappMessage && (
             <div
@@ -684,7 +1062,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                   className="btn btn-secondary"
                   style={{ padding: '4px 10px', fontSize: '0.75rem' }}
                   onClick={() => {
-                    const url = `${typeof window !== 'undefined' ? window.location.origin.replace(':3001', ':3002') : 'http://localhost:3002'}/webhooks/evolution`;
+                    const url = `${apiBaseUrl}/webhooks/evolution`;
                     navigator.clipboard.writeText(url);
                     setCopiedWhatsappWebhook(true);
                     setTimeout(() => setCopiedWhatsappWebhook(false), 2000);
@@ -704,9 +1082,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                   wordBreak: 'break-all',
                 }}
               >
-                {typeof window !== 'undefined'
-                  ? `${window.location.origin.replace(':3001', ':3002')}/webhooks/evolution`
-                  : 'http://localhost:3002/webhooks/evolution'}
+                {apiBaseUrl}/webhooks/evolution
               </code>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px', marginBottom: 0 }}>
                 Set this URL in Evolution API Manager under Webhooks &gt; Enabled: On &gt; Events: [<code>MESSAGES_UPSERT</code>].
@@ -719,6 +1095,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
               </button>
             </div>
           </form>
+        </div>
         </div>
       )}
 
@@ -749,6 +1126,40 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
               {botMessage.text}
             </div>
           )}
+
+          {/* AI Agent Status Alert in Bot Persona */}
+          <div
+            style={{
+              padding: '12px 16px',
+              marginBottom: '18px',
+              borderRadius: 'var(--radius-sm)',
+              background: aiAgentEnabled ? 'rgba(34, 197, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+              border: `1px solid ${aiAgentEnabled ? 'rgba(34, 197, 94, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className={aiAgentEnabled ? 'pulse-dot' : 'pulse-dot-amber'} />
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+                Agent Status:{' '}
+                <strong style={{ color: aiAgentEnabled ? '#4ade80' : '#facc15' }}>
+                  {aiAgentEnabled ? 'ACTIVE / ONLINE' : 'PAUSED / OFFLINE'}
+                </strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn-xs btn-secondary"
+              onClick={() => setActiveTab('whatsapp')}
+              style={{ fontSize: '0.75rem' }}
+            >
+              Configure Offline Auto-Reply &rarr;
+            </button>
+          </div>
 
           <form
             action={async (formData) => {

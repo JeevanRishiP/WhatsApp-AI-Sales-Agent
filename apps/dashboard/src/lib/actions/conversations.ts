@@ -13,6 +13,7 @@ import { getTenantId } from '../auth';
 import { resolveHandoff, reopenConversation } from '../dal/conversations';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
+import { sendWhatsAppTextMessage } from '../whatsapp';
 
 export interface ConversationActionState {
   error?: string;
@@ -78,18 +79,30 @@ export async function sendAgentReplyAction(
       return { error: 'Conversation not found' };
     }
 
-    // Save message with role 'AGENT'
+    // 1. Dispatch message to customer via WhatsApp Evolution API
+    const dispatchResult = await sendWhatsAppTextMessage({
+      tenantId,
+      toPhone: conversation.customerPhone,
+      text: parsed.data.message,
+    });
+
+    if (!dispatchResult.success) {
+      return { error: dispatchResult.error || 'Failed to send WhatsApp message' };
+    }
+
+    // 2. Save message with role 'agent' and WhatsApp message ID
     await prisma.message.create({
       data: {
         tenantId,
         conversationId,
-        role: 'AGENT',
+        role: 'agent',
         content: parsed.data.message,
         messageType: 'text',
+        whatsappMessageId: dispatchResult.messageId || null,
       },
     });
 
-    // Update conversation last message timestamp & message count
+    // 3. Update conversation last message timestamp & message count
     await prisma.conversation.update({
       where: { id: conversationId },
       data: {
