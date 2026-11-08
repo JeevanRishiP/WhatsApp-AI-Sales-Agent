@@ -7,6 +7,9 @@ import {
 import { prisma } from '@wcos/db';
 import { ConversationsClient } from './ConversationsClient';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface ConversationsPageProps {
   searchParams: {
     id?: string;

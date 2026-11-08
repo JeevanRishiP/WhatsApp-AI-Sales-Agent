@@ -69,6 +69,33 @@ function formatMessageTime(dateInput: any): string {
   });
 }
 
+function getChatDateLabel(dateInput: any): string {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffTime = today.getTime() - msgDate.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return 'Today';
+  }
+  if (diffDays === 1) {
+    return 'Yesterday';
+  }
+  if (diffDays === 2) {
+    return 'Day before yesterday';
+  }
+  if (diffDays > 2 && diffDays < 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export function ConversationsClient({
   conversations,
   handoffQueue,
@@ -142,6 +169,17 @@ export function ConversationsClient({
   useEffect(() => {
     scrollToBottom('smooth');
   }, [currentChat?.messages?.length]);
+
+  // Live auto-polling: refresh conversation timeline every 4s so new WhatsApp messages appear in real-time
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !isPending) {
+        router.refresh();
+      }
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, [router, isPending]);
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -521,22 +559,104 @@ export function ConversationsClient({
               >
                 {currentChat.messages && currentChat.messages.length > 0 ? (
                   <>
-                    {currentChat.messages.map((msg) => {
+                    {/* WhatsApp Top Sticky / Floating Date Indicator */}
+                    <div
+                      style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        pointerEvents: 'none',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: 'rgba(23, 28, 40, 0.92)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: '#E2E8F0',
+                          fontSize: '0.6875rem',
+                          fontWeight: 600,
+                          padding: '3px 14px',
+                          borderRadius: '9999px',
+                          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {getChatDateLabel(
+                          currentChat.messages[currentChat.messages.length - 1]?.createdAt ||
+                            currentChat.lastMessageAt ||
+                            new Date()
+                        )}
+                      </span>
+                    </div>
+
+                    {currentChat.messages.map((msg, idx) => {
                       const role = (msg.role || '').toLowerCase();
                       const isCustomer = role === 'customer' || role === 'user';
                       const isAgent = role === 'agent' || role === 'merchant' || role === 'human';
                       const isSystem = role === 'system';
 
+                      const prevMsg = idx > 0 ? currentChat.messages![idx - 1] : null;
+                      const msgDateStr = new Date(msg.createdAt).toDateString();
+                      const prevDateStr = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                      const isNewDay = idx === 0 || msgDateStr !== prevDateStr;
+                      const dateDividerLabel = isNewDay ? getChatDateLabel(msg.createdAt) : null;
+
                       return (
-                        <div
-                          key={msg.id}
-                          className="message-bubble"
-                          style={{
-                            alignSelf: isCustomer
-                              ? 'flex-start'
-                              : isSystem
-                              ? 'center'
-                              : 'flex-end',
+                        <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                          {isNewDay && dateDividerLabel && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: idx === 0 ? '4px 0 14px 0' : '20px 0 14px 0',
+                                position: 'relative',
+                                width: '100%',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  right: 0,
+                                  height: '1px',
+                                  background:
+                                    'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08) 20%, rgba(255, 255, 255, 0.08) 80%, transparent)',
+                                }}
+                              />
+                              <span
+                                style={{
+                                  position: 'relative',
+                                  background: '#171C28',
+                                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                                  color: 'var(--text-secondary, #94A3B8)',
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 600,
+                                  padding: '3px 12px',
+                                  borderRadius: '9999px',
+                                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.25)',
+                                  letterSpacing: '0.03em',
+                                  textTransform: 'capitalize',
+                                }}
+                              >
+                                {dateDividerLabel}
+                              </span>
+                            </div>
+                          )}
+
+                          <div
+                            className="message-bubble"
+                            style={{
+                              alignSelf: isCustomer
+                                ? 'flex-start'
+                                : isSystem
+                                ? 'center'
+                                : 'flex-end',
                             background: isCustomer
                               ? '#171C28'
                               : isAgent
@@ -629,7 +749,8 @@ export function ConversationsClient({
                             </span>
                           </div>
                         </div>
-                      );
+                      </div>
+                    );
                     })}
                   </>
                 ) : (

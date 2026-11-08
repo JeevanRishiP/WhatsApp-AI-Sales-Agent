@@ -40,6 +40,33 @@ interface CustomerProfileClientProps {
   profile: FullCustomerProfile;
 }
 
+function getChatDateLabel(dateInput: any): string {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffTime = today.getTime() - msgDate.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return 'Today';
+  }
+  if (diffDays === 1) {
+    return 'Yesterday';
+  }
+  if (diffDays === 2) {
+    return 'Day before yesterday';
+  }
+  if (diffDays > 2 && diffDays < 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+  return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'chat' | 'delivery'>('overview');
@@ -436,7 +463,7 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
               <input
                 type="text"
                 className="form-input"
-                placeholder="e.g. Silk Sarees, Kurtas, Jewelry"
+                placeholder="e.g. Silk Sarees, Banarasi, Kanjeevaram"
                 value={editCategories}
                 onChange={(e) => setEditCategories(e.target.value)}
               />
@@ -1282,38 +1309,107 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                 </p>
               </div>
             ) : (
-              profile.conversation.messages.map((m) => {
-                const role = (m.role || '').toLowerCase();
-                const isCustomer = role === 'customer' || role === 'user';
-                const isAgent = role === 'agent' || role === 'human' || role === 'merchant';
-
-                return (
-                  <div
-                    key={m.id}
+              <>
+                {/* WhatsApp Top Sticky / Floating Date Indicator */}
+                <div
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <span
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: isCustomer ? 'flex-start' : 'flex-end',
-                      maxWidth: '100%',
+                      background: '#182229',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      color: '#8696a0',
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      padding: '3px 14px',
+                      borderRadius: '9999px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+                      letterSpacing: '0.02em',
                     }}
                   >
-                    <div
-                      style={{
-                        maxWidth: '75%',
-                        padding: '10px 14px',
-                        borderRadius: isCustomer ? '14px 14px 14px 2px' : '14px 14px 2px 14px',
-                        background: isCustomer
-                          ? '#202c33' // WhatsApp incoming bubble
-                          : isAgent
-                          ? '#1e3a8a' // Merchant manual message
-                          : '#005c4b', // WhatsApp outgoing assistant bubble
-                        color: '#e9edef',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                        fontSize: '0.875rem',
-                        lineHeight: 1.5,
-                        wordBreak: 'break-word',
-                      }}
-                    >
+                    {getChatDateLabel(
+                      profile.conversation.messages[profile.conversation.messages.length - 1]?.createdAt ||
+                        new Date()
+                    )}
+                  </span>
+                </div>
+
+                {profile.conversation.messages.map((m, idx) => {
+                  const role = (m.role || '').toLowerCase();
+                  const isCustomer = role === 'customer' || role === 'user';
+                  const isAgent = role === 'agent' || role === 'human' || role === 'merchant';
+
+                  const prevMsg = idx > 0 ? profile.conversation!.messages[idx - 1] : null;
+                  const msgDateStr = new Date(m.createdAt).toDateString();
+                  const prevDateStr = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                  const isNewDay = idx === 0 || msgDateStr !== prevDateStr;
+                  const dateDividerLabel = isNewDay ? getChatDateLabel(m.createdAt) : null;
+
+                  return (
+                    <div key={m.id} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                      {isNewDay && dateDividerLabel && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: idx === 0 ? '4px 0 12px 0' : '18px 0 12px 0',
+                            position: 'relative',
+                            width: '100%',
+                          }}
+                        >
+                          <span
+                            style={{
+                              background: '#182229',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              color: '#8696a0',
+                              fontSize: '0.6875rem',
+                              fontWeight: 600,
+                              padding: '3px 14px',
+                              borderRadius: '9999px',
+                              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+                              letterSpacing: '0.03em',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {dateDividerLabel}
+                          </span>
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: isCustomer ? 'flex-start' : 'flex-end',
+                          maxWidth: '100%',
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxWidth: '75%',
+                            padding: '10px 14px',
+                            borderRadius: isCustomer ? '14px 14px 14px 2px' : '14px 14px 2px 14px',
+                            background: isCustomer
+                              ? '#202c33' // WhatsApp incoming bubble
+                              : isAgent
+                              ? '#1e3a8a' // Merchant manual message
+                              : '#005c4b', // WhatsApp outgoing assistant bubble
+                            color: '#e9edef',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                            fontSize: '0.875rem',
+                            lineHeight: 1.5,
+                            wordBreak: 'break-word',
+                          }}
+                        >
                       {/* Role indicator header */}
                       <div
                         style={{
@@ -1366,11 +1462,13 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                           minute: '2-digit',
                         })}
                       </div>
+                      </div>
                     </div>
                   </div>
                 );
-              })
-            )}
+              })}
+            </>
+          )}
           </div>
 
           {/* Quick Reply Composer */}

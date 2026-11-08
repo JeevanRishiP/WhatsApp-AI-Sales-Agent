@@ -180,7 +180,7 @@ export default function LoginPage() {
                 <span>Aura Luxe Boutique</span>
               </div>
               <span style={{ fontSize: '0.6875rem', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
-                Fashion & Jewelry
+                Luxury Sarees
               </span>
             </a>
 
