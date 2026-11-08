@@ -128,10 +128,10 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
   const [paymentSimMessage, setPaymentSimMessage] = useState<string | null>(null);
-  const [selectedCourierPartner, setSelectedCourierPartner] = useState<'DELHIVERY' | 'DTDC'>('DELHIVERY');
+  const [selectedCourierPartner, setSelectedCourierPartner] = useState<'DELHIVERY'>('DELHIVERY');
   const [isGeneratingAwb, setIsGeneratingAwb] = useState(false);
 
-  const handleGenerateBillAndAwb = async (orderId: string, courier: 'DELHIVERY' | 'DTDC') => {
+  const handleGenerateBillAndAwb = async (orderId: string, courier: 'DELHIVERY' = 'DELHIVERY') => {
     if (selectedOrder && (selectedOrder.status === 'CANCELLED' || selectedOrder.status === 'REFUNDED')) {
       setErrorMessage('Cannot generate shipping bill or AWB for a cancelled order.');
       return;
@@ -753,14 +753,14 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
                             <span
                               className="badge"
                               style={{
-                                background: selectedOrder.courierPartner === 'DTDC' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                                color: selectedOrder.courierPartner === 'DTDC' ? '#F59E0B' : '#10B981',
-                                border: `1px solid ${selectedOrder.courierPartner === 'DTDC' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                color: '#10B981',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
                                 fontWeight: 700,
                                 fontSize: '0.75rem',
                               }}
                             >
-                              {selectedOrder.courierPartner || 'DELHIVERY'}
+                              Delhivery Express
                             </span>
                             <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '0.875rem', fontWeight: 700 }}>
                               {selectedOrder.trackingNumber}
@@ -770,14 +770,14 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>Partner:</span>
                             <select
-                              value={selectedCourierPartner}
-                              onChange={(e) => setSelectedCourierPartner(e.target.value as any)}
+                              value="DELHIVERY"
+                              disabled
                               className="form-input"
                               style={{ padding: '3px 8px', fontSize: '0.75rem', width: 'auto', height: '28px' }}
                             >
-                              <option value="DELHIVERY">Delhivery Express</option>
-                              <option value="DTDC">DTDC Priority Air</option>
+                              <option value="DELHIVERY">Delhivery Express (Active Sandbox)</option>
                             </select>
+                            <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>(DTDC Deactivated)</span>
                           </div>
                         )}
                       </div>
@@ -1049,11 +1049,10 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
                 <div className="form-group">
                   <label className="form-label">Courier Logistics Partner</label>
                   <select name="courier" className="form-select">
+                    <option value="Delhivery">Delhivery Express (Active Sandbox)</option>
+                    <option value="DTDC Express" disabled>DTDC Express (Deactivated for Testing)</option>
                     <option value="Bluedart Express">Bluedart Express (Air Priority)</option>
-                    <option value="Delhivery">Delhivery Surface/Air</option>
-                    <option value="DTDC Express">DTDC Express Gold</option>
                     <option value="Shiprocket">Shiprocket Automated</option>
-                    <option value="India Post SpeedPost">India Post SpeedPost</option>
                   </select>
                 </div>
 

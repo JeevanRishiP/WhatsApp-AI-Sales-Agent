@@ -15,7 +15,6 @@ import {
   Copy,
   ExternalLink,
 } from 'lucide-react';
-import { generateBillAndAwbAction } from '@/lib/actions/orders';
 
 interface BillItem {
   id: string;
@@ -40,7 +39,7 @@ interface OrderBillData {
   shippingCharge: number;
   total: number;
   status: string;
-  courierPartner: 'DELHIVERY' | 'DTDC';
+  courierPartner: 'DELHIVERY' | string;
   awbCode: string;
   trackingUrl: string;
   dispatchedAt: string;
@@ -81,10 +80,7 @@ export function OrderBillClient({
 }: OrderBillClientProps) {
   const router = useRouter();
   const [format, setFormat] = useState<'invoice' | 'label'>(initialFormat);
-  const [selectedCourier, setSelectedCourier] = useState<'DELHIVERY' | 'DTDC'>(
-    order.courierPartner || 'DELHIVERY'
-  );
-  const [isSwitching, setIsSwitching] = useState(false);
+  const [selectedCourier] = useState<'DELHIVERY'>('DELHIVERY');
   const [copied, setCopied] = useState(false);
 
   const handlePrint = () => {
@@ -97,17 +93,8 @@ export function OrderBillClient({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCourierChange = async (courier: 'DELHIVERY' | 'DTDC') => {
-    if (courier === selectedCourier) return;
-    setIsSwitching(true);
-    setSelectedCourier(courier);
-    await generateBillAndAwbAction(order.id, courier);
-    router.refresh();
-    setIsSwitching(false);
-  };
-
-  const isDelhivery = selectedCourier === 'DELHIVERY';
-  const courierDisplayName = isDelhivery ? 'Delhivery Express Surface' : 'DTDC Express Priority';
+  const isDelhivery = true;
+  const courierDisplayName = 'Delhivery Express';
 
   return (
     <div className="bill-screen-container">
@@ -157,45 +144,38 @@ export function OrderBillClient({
             </div>
           </div>
 
-          {/* Courier Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Courier Sandbox:</span>
-            <div style={{ display: 'flex', background: 'var(--bg-tertiary)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-              <button
-                type="button"
-                disabled={isSwitching}
-                onClick={() => handleCourierChange('DELHIVERY')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: selectedCourier === 'DELHIVERY' ? '#0F766E' : 'transparent',
-                  color: selectedCourier === 'DELHIVERY' ? '#fff' : 'var(--text-secondary)',
-                }}
-              >
-                Delhivery
-              </button>
-              <button
-                type="button"
-                disabled={isSwitching}
-                onClick={() => handleCourierChange('DTDC')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: selectedCourier === 'DTDC' ? '#B45309' : 'transparent',
-                  color: selectedCourier === 'DTDC' ? '#fff' : 'var(--text-secondary)',
-                }}
-              >
-                DTDC
-              </button>
-            </div>
+          {/* Active Courier Partner & Sandbox Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8125rem' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                background: 'rgba(15, 118, 110, 0.15)',
+                color: '#2DD4BF',
+                border: '1px solid rgba(45, 212, 191, 0.3)',
+              }}
+            >
+              <Truck size={13} />
+              <span>Delhivery Express (Sandbox Mode)</span>
+            </span>
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-tertiary)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+              }}
+              title="DTDC courier partner is disabled during testing phase"
+            >
+              DTDC Deactivated
+            </span>
           </div>
         </div>
 
@@ -437,16 +417,16 @@ export function OrderBillClient({
             <div className="label-carrier-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Truck size={20} />
-                <span className="carrier-name">{isDelhivery ? 'DELHIVERY EXPRESS' : 'DTDC PRIORITY AIR'}</span>
+                <span className="carrier-name">DELHIVERY EXPRESS</span>
               </div>
-              <span className="carrier-badge">SURFACE ROUTE</span>
+              <span className="carrier-badge">SANDBOX AIRWAY BILL</span>
             </div>
 
             {/* Huge Barcode & AWB */}
             <div className="label-awb-box">
               <div className="label-awb-text">{order.awbCode}</div>
               <div className="label-barcode" dangerouslySetInnerHTML={{ __html: barcodeSvg }} />
-              <div className="label-routing">ROUTING: BLR / IND / 560038 • ORDER: {order.orderNumber}</div>
+              <div className="label-routing">ROUTING: DEL / BLR / EXP / {order.deliveryAddress.pincode || '560038'} • ORDER: {order.orderNumber}</div>
             </div>
 
             {/* To & QR Box */}

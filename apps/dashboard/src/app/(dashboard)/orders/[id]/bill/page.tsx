@@ -193,18 +193,13 @@ export default async function OrderBillPage({ params, searchParams }: BillPagePr
     );
   }
 
-  const requestedCourier = (searchParams.courier?.toUpperCase() === 'DTDC'
-    ? 'DTDC'
-    : 'DELHIVERY') as CourierPartner;
-
-  // Use existing AWB or generate realistic AWB for bill preview
-  const courierPartner: CourierPartner =
-    (order.courierPartner as CourierPartner) || requestedCourier;
+  // DTDC is deactivated during testing phase — always enforce Delhivery Express
+  const courierPartner: CourierPartner = 'DELHIVERY';
 
   const awbCode =
     order.awbCode ||
     order.trackingNumber ||
-    generateAwbNumber(courierPartner, `${order.orderNumber}-${order.customerPhone}`);
+    generateAwbNumber('DELHIVERY', `${order.orderNumber}-${order.customerPhone}`);
 
   const storefrontBase =
     process.env['NEXT_PUBLIC_STOREFRONT_URL'] ||
