@@ -415,11 +415,15 @@ export async function getFullCustomerProfile(
     },
     include: {
       messages: {
-        orderBy: { createdAt: 'asc' },
-        take: 100,
+        orderBy: { createdAt: 'desc' },
+        take: 300,
       },
     },
   });
+
+  if (conversation?.messages) {
+    conversation.messages.reverse();
+  }
 
   // If no customer memory and no orders and no conversation, customer doesn't exist
   if (!customer && dbOrders.length === 0 && !conversation) {

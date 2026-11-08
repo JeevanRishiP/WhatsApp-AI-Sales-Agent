@@ -9,10 +9,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getTenantId } from '@/lib/auth';
 import {
+  getProduct,
   createProduct,
   updateProduct,
+  updateProductImages,
   archiveProduct,
   updateStock,
   type CreateProductInput,
@@ -34,6 +38,7 @@ const ProductFormSchema = z.object({
   stock: z.coerce.number().int().nonnegative().default(0),
   lowStockThreshold: z.coerce.number().int().nonnegative().default(5),
   tags: z.string().optional(), // comma-separated
+  imageUrls: z.string().optional(), // comma or newline separated
   status: z.enum(['ACTIVE', 'DRAFT', 'OUT_OF_STOCK', 'ARCHIVED']).default('ACTIVE'),
 });
 
@@ -63,6 +68,7 @@ export async function createProductAction(
     stock: formData.get('stock') || 0,
     lowStockThreshold: formData.get('lowStockThreshold') || 5,
     tags: formData.get('tags') || undefined,
+    imageUrls: formData.get('imageUrls') || undefined,
     status: formData.get('status') || 'ACTIVE',
   };
 
@@ -75,10 +81,18 @@ export async function createProductAction(
     };
   }
 
+  const parsedImages = parsed.data.imageUrls
+    ? parsed.data.imageUrls
+        .split(/[\n,]/)
+        .map((u) => u.trim())
+        .filter((u) => u.startsWith('http') || u.startsWith('/'))
+    : [];
+
   const input: CreateProductInput = {
     ...parsed.data,
     salePrice: parsed.data.salePrice ?? undefined,
     tags: parsed.data.tags ? parsed.data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+    imageUrls: parsedImages,
   };
 
   try {
@@ -118,10 +132,20 @@ export async function updateProductAction(
     };
   }
 
+  const { imageUrls: _rawImageUrls, ...cleanParsed } = parsed.data;
+
+  const parsedImages = _rawImageUrls !== undefined
+    ? _rawImageUrls
+        .split(/[\n,]/)
+        .map((u) => u.trim())
+        .filter((u) => u.startsWith('http') || u.startsWith('/'))
+    : undefined;
+
   const input: UpdateProductInput = {
-    ...parsed.data,
-    salePrice: parsed.data.salePrice ?? undefined,
-    tags: parsed.data.tags ? parsed.data.tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+    ...cleanParsed,
+    salePrice: cleanParsed.salePrice ?? undefined,
+    tags: cleanParsed.tags ? cleanParsed.tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+    ...(parsedImages !== undefined ? { imageUrls: parsedImages } : {}),
   };
 
   try {
@@ -239,4 +263,176 @@ export async function bulkImportProductsAction(
 
   revalidatePath('/inventory');
   return { success: true, importedCount: imported };
+}
+
+// ─── Photo Management Actions ─────────────────────────────────────
+
+export interface PhotoActionResult {
+  success: boolean;
+  imageUrls?: string[];
+  thumbnailUrl?: string | null;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Updates full list of photo URLs and primary thumbnail for a product.
+ */
+export async function updateProductImagesAction(
+  productId: string,
+  imageUrls: string[],
+  thumbnailUrl?: string | null
+): Promise<PhotoActionResult> {
+  const tenantId = await getTenantId();
+
+  try {
+    const updated = await updateProductImages(tenantId, productId, imageUrls, thumbnailUrl);
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${productId}`);
+    return {
+      success: true,
+      imageUrls: updated.imageUrls,
+      thumbnailUrl: updated.thumbnailUrl,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to update photos' };
+  }
+}
+
+/**
+ * Uploads a local image file (JPG, PNG, WebP) directly from device.
+ */
+export async function uploadProductImageAction(
+  productId: string,
+  formData: FormData
+): Promise<PhotoActionResult> {
+  const tenantId = await getTenantId();
+  const file = formData.get('file') as File | null;
+
+  if (!file || typeof file === 'string' || file.size === 0) {
+    return { success: false, error: 'No image file provided' };
+  }
+
+  // Validate MIME type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+  if (!allowedTypes.includes(file.type)) {
+    return { success: false, error: 'Unsupported format. Please upload JPG, PNG, WebP, GIF, or AVIF.' };
+  }
+
+  // 10MB limit
+  if (file.size > 10 * 1024 * 1024) {
+    return { success: false, error: 'Photo exceeds maximum size of 10MB.' };
+  }
+
+  try {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Save into public/uploads/products
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products');
+    await fs.promises.mkdir(uploadDir, { recursive: true });
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(ext) ? ext : 'jpg';
+    const uniqueId = Math.random().toString(36).substring(2, 9);
+    const filename = `item-${productId.slice(0, 8)}-${Date.now()}-${uniqueId}.${safeExt}`;
+    const filePath = path.join(uploadDir, filename);
+
+    await fs.promises.writeFile(filePath, buffer);
+
+    const publicUrl = `/uploads/products/${filename}`;
+
+    const product = await getProduct(tenantId, productId);
+    if (!product) {
+      return { success: false, error: 'Product not found' };
+    }
+
+    const nextImageUrls = [...(product.imageUrls || []), publicUrl];
+    const updated = await updateProductImages(tenantId, productId, nextImageUrls);
+
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${productId}`);
+    return {
+      success: true,
+      url: publicUrl,
+      imageUrls: updated.imageUrls,
+      thumbnailUrl: updated.thumbnailUrl,
+    };
+  } catch (err: any) {
+    console.error('[uploadProductImageAction] Error:', err);
+    return { success: false, error: err.message || 'Failed to upload photo' };
+  }
+}
+
+/**
+ * Removes a photo by URL and resets cover thumbnail if needed.
+ */
+export async function removeProductImageAction(
+  productId: string,
+  imageUrl: string
+): Promise<PhotoActionResult> {
+  const tenantId = await getTenantId();
+
+  try {
+    const product = await getProduct(tenantId, productId);
+    if (!product) {
+      return { success: false, error: 'Product not found' };
+    }
+
+    const nextImageUrls = (product.imageUrls || []).filter((u) => u !== imageUrl);
+    const nextThumbnail = product.thumbnailUrl === imageUrl
+      ? (nextImageUrls[0] || null)
+      : (product.thumbnailUrl || nextImageUrls[0] || null);
+
+    const updated = await updateProductImages(tenantId, productId, nextImageUrls, nextThumbnail);
+
+    // If local file in /uploads/products, attempt to clean up file from disk
+    if (imageUrl.startsWith('/uploads/products/')) {
+      const filename = path.basename(imageUrl);
+      const filePath = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
+      fs.promises.unlink(filePath).catch(() => {});
+    }
+
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${productId}`);
+    return {
+      success: true,
+      imageUrls: updated.imageUrls,
+      thumbnailUrl: updated.thumbnailUrl,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to remove photo' };
+  }
+}
+
+/**
+ * Sets an existing photo as the primary cover photo for catalog and WhatsApp.
+ */
+export async function setPrimaryProductImageAction(
+  productId: string,
+  imageUrl: string
+): Promise<PhotoActionResult> {
+  const tenantId = await getTenantId();
+
+  try {
+    const product = await getProduct(tenantId, productId);
+    if (!product) {
+      return { success: false, error: 'Product not found' };
+    }
+
+    const remaining = (product.imageUrls || []).filter((u) => u !== imageUrl);
+    const reordered = [imageUrl, ...remaining];
+
+    const updated = await updateProductImages(tenantId, productId, reordered, imageUrl);
+
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${productId}`);
+    return {
+      success: true,
+      imageUrls: updated.imageUrls,
+      thumbnailUrl: updated.thumbnailUrl,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Failed to set cover photo' };
+  }
 }

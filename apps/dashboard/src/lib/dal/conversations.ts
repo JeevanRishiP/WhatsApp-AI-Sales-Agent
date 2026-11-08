@@ -103,13 +103,16 @@ export async function getConversationDetail(
     },
     include: {
       messages: {
-        orderBy: { createdAt: 'asc' },
-        take: 200, // last 200 messages
+        orderBy: { createdAt: 'desc' },
+        take: 300, // most recent 300 messages
       },
     },
   });
 
   if (!conversation) return null;
+
+  // Reverse to chronological order (oldest -> newest) for timeline display
+  conversation.messages.reverse();
 
   // Fetch associated customer memory
   const customerMemory = await prisma.customerMemory.findFirst({

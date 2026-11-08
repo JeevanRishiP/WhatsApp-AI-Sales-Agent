@@ -188,6 +188,7 @@ export interface UpdateProductInput {
   stock?: number;
   lowStockThreshold?: number;
   imageUrls?: string[];
+  thumbnailUrl?: string | null;
   attributes?: Record<string, unknown>;
   tags?: string[];
   status?: ProductStatus;
@@ -219,6 +220,7 @@ export async function updateProduct(
   if (input.stock !== undefined) data.stock = input.stock;
   if (input.lowStockThreshold !== undefined) data.lowStockThreshold = input.lowStockThreshold;
   if (input.imageUrls !== undefined) data.imageUrls = input.imageUrls;
+  if (input.thumbnailUrl !== undefined) data.thumbnailUrl = input.thumbnailUrl;
   if (input.attributes !== undefined) data.attributes = input.attributes as Prisma.InputJsonValue;
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.status !== undefined) data.status = input.status;
@@ -238,6 +240,38 @@ export async function updateProduct(
   return prisma.product.update({
     where: { id: productId },
     data,
+  });
+}
+
+// ─── Update Product Images ────────────────────────────────────────
+
+export async function updateProductImages(
+  tenantId: string,
+  productId: string,
+  imageUrls: string[],
+  thumbnailUrl?: string | null
+): Promise<Product> {
+  const existing = await prisma.product.findFirst({
+    where: { id: productId, tenantId },
+  });
+
+  if (!existing) {
+    throw new Error('Product not found');
+  }
+
+  const effectiveThumbnail =
+    thumbnailUrl !== undefined
+      ? thumbnailUrl
+      : imageUrls.length > 0
+      ? imageUrls[0]
+      : null;
+
+  return prisma.product.update({
+    where: { id: productId },
+    data: {
+      imageUrls,
+      thumbnailUrl: effectiveThumbnail,
+    },
   });
 }
 
