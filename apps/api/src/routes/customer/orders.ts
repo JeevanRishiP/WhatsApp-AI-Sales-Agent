@@ -1,6 +1,7 @@
 import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { CartService } from '@wcos/queue';
+import { getDelhiveryLiveTrackingStatus } from '@wcos/types';
 import { requireCustomerAuth } from '../../middleware/customer-auth.js';
 import { EvolutionService } from '../../services/evolution-service.js';
 import { CustomerAuthService } from '../../services/customer-auth-service.js';
@@ -529,92 +530,44 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
       });
     }
 
-    const deliveryAddress = (order.deliveryAddress as any) || {};
-    const courierPartner = (order.courierPartner as any) || (order.trackingNumber?.startsWith('DTDC') ? 'DTDC' : 'DELHIVERY');
-    const courierName = courierPartner === 'DTDC' ? 'DTDC Priority Air' : 'Delhivery Express';
+    const delhiveryStatus = getDelhiveryLiveTrackingStatus(order, order.tenant?.slug || 'aura');
 
     // Mask customer name for recipient privacy on public links
     const maskedName = order.customerName
       ? `${order.customerName.charAt(0)}***${order.customerName.slice(-1)}`
       : 'Customer';
 
-    const city = deliveryAddress.city || 'Bengaluru';
-    const state = deliveryAddress.state || 'Karnataka';
+    const deliveryAddress = (order.deliveryAddress as any) || {};
+    const city = deliveryAddress.city || delhiveryStatus.destination.city || 'Bengaluru';
+    const state = deliveryAddress.state || delhiveryStatus.destination.state || 'Karnataka';
     const pincode = deliveryAddress.pincode ? `******${deliveryAddress.pincode.slice(-3)}` : '560***';
-
-    // Generate or use stored tracking events
-    const rawEvents = Array.isArray(order.trackingEvents) ? (order.trackingEvents as any[]) : [];
-    const trackingEvents = rawEvents.length > 0 ? rawEvents : [
-      {
-        status: 'MANIFEST_CREATED',
-        label: 'Order Packed & Manifest Generated',
-        location: `${order.tenant?.name || 'Boutique'} Fulfillment Center`,
-        description: `Parcel verified, shipping bill printed and assigned to ${courierName}. AWB: ${order.trackingNumber || order.awbCode}`,
-        timestamp: order.dispatchedAt ? order.dispatchedAt.toISOString() : order.createdAt.toISOString(),
-        completed: true,
-        current: order.status === 'PROCESSING',
-      },
-      {
-        status: 'PICKED_UP',
-        label: 'Handed Over to Courier',
-        location: 'Bengaluru Logistics Sorting Facility',
-        description: `Consignment picked up by ${courierName} courier agent and scanned into primary logistics gateway.`,
-        timestamp: order.dispatchedAt ? order.dispatchedAt.toISOString() : order.createdAt.toISOString(),
-        completed: order.status === 'SHIPPED' || order.status === 'DELIVERED',
-        current: order.status === 'SHIPPED',
-      },
-      {
-        status: 'IN_TRANSIT',
-        label: 'In Transit to Destination',
-        location: `${city} Air Cargo Logistics Hub`,
-        description: `Shipment bagged and transported via express route to ${city} local delivery station.`,
-        timestamp: new Date(order.createdAt.getTime() + 18 * 60 * 60 * 1000).toISOString(),
-        completed: order.status === 'DELIVERED',
-        current: false,
-      },
-      {
-        status: 'OUT_FOR_DELIVERY',
-        label: 'Out for Delivery',
-        location: `${city} Delivery Station`,
-        description: `Assigned to delivery executive. Contactless / OTP delivery initiated.`,
-        timestamp: new Date(order.createdAt.getTime() + 48 * 60 * 60 * 1000).toISOString(),
-        completed: order.status === 'DELIVERED',
-        current: false,
-      },
-      {
-        status: 'DELIVERED',
-        label: 'Delivered',
-        location: `Delivered to Recipient`,
-        description: `Parcel successfully handed over to recipient.`,
-        timestamp: new Date(order.createdAt.getTime() + 60 * 60 * 1000).toISOString(),
-        completed: order.status === 'DELIVERED',
-        current: order.status === 'DELIVERED',
-      },
-    ];
 
     return reply.send({
       shipment: {
-        orderNumber: order.orderNumber,
-        status: order.status,
-        courierPartner,
-        courierName,
-        awbCode: order.awbCode || order.trackingNumber,
-        trackingUrl: order.trackingUrl,
+        orderNumber: delhiveryStatus.orderNumber,
+        status: delhiveryStatus.orderStatus,
+        courierPartner: 'DELHIVERY',
+        courierName: 'Delhivery Express',
+        awbCode: delhiveryStatus.awbCode,
+        trackingUrl: delhiveryStatus.trackingUrl,
+        courierPortalUrl: delhiveryStatus.courierPortalUrl,
         dispatchedAt: order.dispatchedAt || order.createdAt,
-        estimatedDelivery: '2 - 3 business days',
+        estimatedDelivery: delhiveryStatus.expectedDeliveryDate,
+        currentLocation: delhiveryStatus.currentLocation,
+        currentStatusLabel: delhiveryStatus.currentStatusLabel,
         destination: {
           recipientMasked: maskedName,
           city,
           state,
           pincode,
         },
-        itemsSummary: order.items.map((it) => ({
-          productName: it.productName,
-          productCode: it.productCode,
+        itemsSummary: delhiveryStatus.items.map((it) => ({
+          productName: it.name,
+          productCode: it.productCode || '',
           quantity: it.quantity,
         })),
-        itemCount: order.items.length,
-        trackingEvents,
+        itemCount: delhiveryStatus.items.length,
+        trackingEvents: delhiveryStatus.milestones,
         store: {
           name: order.tenant?.name || 'Aura Luxe Boutique',
           slug: order.tenant?.slug || 'aura',

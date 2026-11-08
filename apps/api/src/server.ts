@@ -59,6 +59,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(rateLimit, {
     max: 1000,
     timeWindow: '1 minute',
+    allowList: ['127.0.0.1', '::1', 'localhost'],
   });
 
   // 2. Raw Body Plugin (essential for HMAC signature verification)
