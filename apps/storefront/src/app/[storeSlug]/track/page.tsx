@@ -23,7 +23,7 @@ interface TrackingEvent {
 interface ShipmentData {
   orderNumber: string;
   status: string;
-  courierPartner: 'DELHIVERY' | 'DTDC';
+  courierPartner: 'DELHIVERY' | string;
   courierName: string;
   awbCode: string;
   trackingUrl?: string;

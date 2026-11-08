@@ -5,7 +5,7 @@
     "ownerName": "Aditi Sharma",
     "ownerPhone": "+919876543210",
     "ownerEmail": "aditi@auraluxe.in",
-    "businessCategory": "Luxury Ethnic Wear & Sarees",
+    "businessCategory": "Luxury Handloom & Silk Sarees",
     "status": "ACTIVE",
     "plan": "GROWTH",
     "apiKey": "sk_live_aura_8f92jkl2309x",
@@ -51,7 +51,7 @@
         "handwoven"
       ],
       "searchText": "crimson red bridal banarasi silk saree pure gold zari wedding handwoven",
-      "embeddingText": "Drape yourself in royal elegance with this crimson red Banarasi silk saree. Heavily adorned with pure gold zari motifs, it offers a majestic drape and luxurious feel. Styled best with heavy Kundan jewelry, this piece invokes traditional Indian heritage, making every bride feel like a queen on her special day.",
+      "embeddingText": "Drape yourself in royal elegance with this crimson red Banarasi silk saree. Heavily adorned with pure gold zari motifs, it offers a majestic drape and luxurious feel. Styled best with a matching embroidered silk blouse and classic pallu drape, this piece invokes traditional Indian heritage, making every bride feel like a queen on her special day.",
       "imageUrls": [
         "https://images.unsplash.com/photo-1738690875111-ff1a2d7c4a55",
         "https://images.unsplash.com/photo-1738690940173-e16fee805fe9"
@@ -156,7 +156,7 @@
         "auspicious"
       ],
       "searchText": "golden yellow bridal kanjeevaram silk saree traditional red border muhurtham haldi",
-      "embeddingText": "The epitome of auspicious beginnings, this golden yellow Kanjeevaram features a thick, contrasting red border woven with pure gold threads. Traditionally worn for morning weddings and muhurthams, the vibrant colors invoke blessings and joy. The heavy silk provides a structured, elegant drape that looks breathtaking with temple jewelry.",
+      "embeddingText": "The epitome of auspicious beginnings, this golden yellow Kanjeevaram features a thick, contrasting red border woven with pure gold threads. Traditionally worn for morning weddings and muhurthams, the vibrant colors invoke blessings and joy. The heavy silk provides a structured, elegant drape that looks breathtaking with an elegant south Indian temple border drape.",
       "imageUrls": [
         "https://images.unsplash.com/photo-1725219562144-18283c46b93c",
         "https://images.unsplash.com/photo-1726068499121-ff12a5ddb148"
@@ -225,7 +225,7 @@
         "day wedding"
       ],
       "searchText": "ivory gold kanjeevaram silk saree pure gold zari modern bride day wedding",
-      "embeddingText": "Radiating celestial beauty, this ivory Kanjeevaram is heavily drenched in pure gold zari woven into traditional peacock and rudraksha motifs. It is the absolute dream for a modern day-wedding. The serene ivory paired with the dazzling gold creates a majestic glow, best complemented with contrasting emerald or ruby jewelry.",
+      "embeddingText": "Radiating celestial beauty, this ivory Kanjeevaram is heavily drenched in pure gold zari woven into traditional peacock and rudraksha motifs. It is the absolute dream for a modern day-wedding. The serene ivory paired with the dazzling gold creates a majestic glow, best complemented with a contrasting ruby red silk blouse.",
       "imageUrls": [
         "https://images.unsplash.com/photo-1704552973572-9deabbad9f82",
         "https://images.unsplash.com/photo-1610313462169-3a5e5d5d3423"
@@ -511,197 +511,1695 @@
     {
       "id": "a0000000-0000-4000-8000-000000000015",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-KUN-01",
-      "name": "Regal Kundan Bridal Choker Set",
-      "description": "A breathtaking Kundan choker set encrusted with semi-precious uncut diamonds, rubies, and pearls. Includes matching heavy earrings and maang tikka.",
-      "category": "Jewelry",
-      "subcategory": "Kundan",
-      "price": 12500,
-      "salePrice": 11000,
-      "stock": 3,
-      "lowStockThreshold": 1,
+      "code": "SAR-PAI-01",
+      "name": "Peacock Blue Paithani Handloom Saree",
+      "description": "An exquisite heirloom Paithani saree handwoven in pure mulberry silk, showcasing the iconic motifs and traditional borders. An auspicious masterpiece for traditional weddings and grand receptions.",
+      "category": "Sarees",
+      "subcategory": "Paithani",
+      "price": 20800,
+      "salePrice": 19700,
+      "stock": 16,
+      "lowStockThreshold": 3,
       "attributes": {
-        "material": "Brass Alloy, Gold Plated",
-        "stones": "Kundan, Pearls, Synthetic Rubies",
-        "setIncludes": "Necklace, Earrings, Maang Tikka",
-        "occasion": "Bridal, Wedding"
+        "fabric": "Pure Mulberry Silk",
+        "primaryColor": "Peacock Blue",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "kundan",
-        "choker",
-        "bridal jewelry",
-        "pearls",
-        "rubies",
-        "heavy set"
+        "pure mulberry silk",
+        "paithani",
+        "wedding",
+        "peacock blue",
+        "bridal",
+        "handloom",
+        "saree",
+        "pure gold zari"
       ],
-      "searchText": "regal kundan bridal choker set uncut diamonds rubies pearls necklace earrings maang tikka",
-      "embeddingText": "Complete your bridal transformation with this regal Kundan choker set. Featuring a thick band of intricate Kundan work interspersed with deep red rubies and cascading pearl drops, it hugs the neck luxuriously. The matching oversized earrings and maang tikka perfectly balance a traditional red Banarasi or Lehengas, adding unmatched royal grandeur.",
+      "searchText": "peacock blue paithani saree pure mulberry silk pure gold zari bridal wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Peacock Blue Paithani saree, meticulously woven using Pure Mulberry Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The majestic pallu is a canvas of intricate artistry, showcasing vibrant parrot and peacock motifs intricately woven with traditional techniques. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d"
       ]
     },
     {
       "id": "a0000000-0000-4000-8000-000000000016",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-POL-01",
-      "name": "Rajputana Polki Long Necklace",
-      "description": "A traditional Rani Haar featuring brilliant Polki stones and meenakari enameling on the reverse. A magnificent heritage piece.",
-      "category": "Jewelry",
-      "subcategory": "Polki",
-      "price": 15000,
-      "salePrice": 15000,
-      "stock": 1,
-      "lowStockThreshold": 1,
+      "code": "SAR-PAI-02",
+      "name": "Emerald Green Paithani Handloom Saree",
+      "description": "An exquisite heirloom Paithani saree handwoven in pure mulberry silk, showcasing the iconic motifs and traditional borders. An auspicious masterpiece for traditional weddings and grand receptions.",
+      "category": "Sarees",
+      "subcategory": "Paithani",
+      "price": 18300,
+      "salePrice": 17600,
+      "stock": 13,
+      "lowStockThreshold": 3,
       "attributes": {
-        "material": "Copper Alloy, Gold Plated",
-        "stones": "Foil-backed Polki, Emerald drops",
-        "setIncludes": "Long Necklace, Stud Earrings",
-        "occasion": "Bridal, Reception"
+        "fabric": "Pure Mulberry Silk",
+        "primaryColor": "Emerald Green",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Festive, Reception",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "polki",
-        "rani haar",
-        "long necklace",
-        "rajputana",
-        "meenakari",
-        "heritage"
+        "pure mulberry silk",
+        "paithani",
+        "antique gold zari",
+        "festive",
+        "emerald green",
+        "reception",
+        "handloom",
+        "saree"
       ],
-      "searchText": "rajputana polki long necklace rani haar meenakari enameling heritage bridal reception",
-      "embeddingText": "Channel the queens of yesteryear with this spectacular Rajputana Polki Rani Haar. Designed to sit low on the chest, it features large foil-backed Polki stones that mimic the dazzle of raw diamonds, finished with lush green emerald drops. The exquisite Meenakari enameling on the back proves its high-quality artisan craftsmanship. Ideal for layering.",
+      "searchText": "emerald green paithani saree pure mulberry silk antique gold zari festive reception",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Emerald Green Paithani saree, meticulously woven using Pure Mulberry Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The majestic pallu is a canvas of intricate artistry, showcasing vibrant parrot and peacock motifs intricately woven with traditional techniques. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, reception celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
       ]
     },
     {
       "id": "a0000000-0000-4000-8000-000000000017",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-KUN-02",
-      "name": "Oversized Kundan Jhumka Earrings",
-      "description": "Classic oversized Kundan Jhumkas with delicate pearl sahara (ear chains). A statement piece that elevates any ethnic outfit instantly.",
-      "category": "Jewelry",
-      "subcategory": "Kundan",
-      "price": 4500,
-      "salePrice": 3900,
-      "stock": 15,
-      "lowStockThreshold": 3,
+      "code": "SAR-PAI-03",
+      "name": "Rani Pink Paithani Handloom Saree",
+      "description": "An exquisite heirloom Paithani saree handwoven in pure mulberry silk, showcasing the iconic motifs and traditional borders. An auspicious masterpiece for traditional weddings and grand receptions.",
+      "category": "Sarees",
+      "subcategory": "Paithani",
+      "price": 6900,
+      "salePrice": 5400,
+      "stock": 10,
+      "lowStockThreshold": 2,
       "attributes": {
-        "material": "Brass Alloy, Gold Plated",
-        "stones": "Kundan, Pearls",
-        "setIncludes": "Pair of Earrings with Ear Chains",
-        "occasion": "Festive, Sangeet, Wedding Guest"
+        "fabric": "Pure Mulberry Silk",
+        "primaryColor": "Rani Pink",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "kundan",
-        "jhumka",
-        "earrings",
-        "pearl sahara",
-        "statement jewelry"
+        "pure mulberry silk",
+        "paithani",
+        "wedding",
+        "bridal",
+        "handloom",
+        "rani pink",
+        "saree",
+        "pure gold zari"
       ],
-      "searchText": "oversized kundan jhumka earrings pearl sahara ear chains statement ethnic outfit festive",
-      "embeddingText": "Make a bold statement with these oversized Kundan Jhumkas. Intricately detailed and remarkably lightweight for their size, they feature beautiful pearl ear chains (saharas) that pin into the hair, distributing the weight and adding a vintage, regal touch. Pair these with a simple Chanderi saree to let the earrings steal the show.",
+      "searchText": "rani pink paithani saree pure mulberry silk pure gold zari bridal wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Rani Pink Paithani saree, meticulously woven using Pure Mulberry Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The majestic pallu is a canvas of intricate artistry, showcasing vibrant parrot and peacock motifs intricately woven with traditional techniques. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
-        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed"
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
       ]
     },
     {
       "id": "a0000000-0000-4000-8000-000000000018",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-POL-02",
-      "name": "Crescent Moon Polki Maang Tikka",
-      "description": "An elegant oversized crescent-shaped maang tikka adorned with bright Polki stones and dangling pearls.",
-      "category": "Jewelry",
-      "subcategory": "Polki",
-      "price": 2500,
-      "salePrice": 2200,
-      "stock": 8,
-      "lowStockThreshold": 2,
+      "code": "SAR-PAT-01",
+      "name": "Crimson Red Patola Handloom Saree",
+      "description": "A vibrant and mathematically precise Patola saree crafted from pure ikat silk, featuring mesmerising double ikat patterns. A true collector's item offering a flawless drape and rich heritage.",
+      "category": "Sarees",
+      "subcategory": "Patola",
+      "price": 13400,
+      "salePrice": 12300,
+      "stock": 18,
+      "lowStockThreshold": 3,
       "attributes": {
-        "material": "Mixed Alloy, Gold Plated",
-        "stones": "Polki, Pearls",
-        "setIncludes": "Single Maang Tikka",
-        "occasion": "Festive, Sangeet, Mehendi"
+        "fabric": "Pure Ikat Silk",
+        "primaryColor": "Crimson Red",
+        "zariType": "None",
+        "occasion": "Festive, Wedding",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "polki",
-        "maang tikka",
-        "crescent moon",
-        "headpiece",
-        "mehendi",
-        "bridal"
+        "wedding",
+        "festive",
+        "patola",
+        "pure ikat silk",
+        "crimson red",
+        "handloom",
+        "saree"
       ],
-      "searchText": "crescent moon polki maang tikka oversized headpiece dangling pearls festive sangeet",
-      "embeddingText": "Frame your face beautifully with this oversized crescent moon Polki Maang Tikka. The classic Chandbali design is updated with brilliant Polki stones that rest perfectly on the forehead, finishing with gentle pearl drops. It brings an instant festive glam to Mehendi or Sangeet looks, requiring minimal other jewelry to stand out.",
+      "searchText": "crimson red patola saree pure ikat silk none festive wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Crimson Red Patola saree, meticulously woven using Pure Ikat Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Featuring mesmerizing double ikat geometric patterns, the pallu transitions seamlessly, reflecting the mathematical precision of ancestral weavers. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for festive, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
       ]
     },
     {
       "id": "a0000000-0000-4000-8000-000000000019",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-TEM-01",
-      "name": "Heritage Gold Temple Choker",
-      "description": "Authentic South Indian Temple Jewelry choker featuring Goddess Lakshmi motifs. Handcrafted in pure silver with 24k gold plating.",
-      "category": "Jewelry",
-      "subcategory": "Temple Jewelry",
-      "price": 14000,
-      "salePrice": 14000,
-      "stock": 0,
-      "lowStockThreshold": 2,
+      "code": "SAR-PAT-02",
+      "name": "Mustard Yellow Patola Handloom Saree",
+      "description": "A vibrant and mathematically precise Patola saree crafted from pure ikat silk, featuring mesmerising double ikat patterns. A true collector's item offering a flawless drape and rich heritage.",
+      "category": "Sarees",
+      "subcategory": "Patola",
+      "price": 8100,
+      "salePrice": 7300,
+      "stock": 10,
+      "lowStockThreshold": 3,
       "attributes": {
-        "material": "92.5 Sterling Silver, 24k Gold Plated",
-        "stones": "Kemp stones (Red and Green)",
-        "setIncludes": "Choker Necklace",
-        "occasion": "Bridal, Traditional Puja"
+        "fabric": "Pure Ikat Silk",
+        "primaryColor": "Mustard Yellow",
+        "zariType": "None",
+        "occasion": "Haldi, Puja",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "temple jewelry",
-        "choker",
-        "lakshmi motif",
-        "south indian",
-        "kemp stones",
-        "silver base"
+        "haldi",
+        "mustard yellow",
+        "patola",
+        "pure ikat silk",
+        "puja",
+        "handloom",
+        "saree"
       ],
-      "searchText": "heritage gold temple choker goddess lakshmi motifs pure silver 24k gold plating bridal puja",
-      "embeddingText": "Rooted deep in South Indian traditions, this Heritage Temple Choker features an intricately carved Goddess Lakshmi sitting atop a lotus. Crafted from pure 92.5 silver and dipped in 24k gold, it is studded with authentic red and green Kemp stones. It is the absolute essential pairing for a Kanjeevaram silk saree on a wedding day.",
+      "searchText": "mustard yellow patola saree pure ikat silk none haldi puja",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Mustard Yellow Patola saree, meticulously woven using Pure Ikat Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Featuring mesmerizing double ikat geometric patterns, the pallu transitions seamlessly, reflecting the mathematical precision of ancestral weavers. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for haldi, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a",
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac"
       ]
     },
     {
       "id": "a0000000-0000-4000-8000-000000000020",
       "tenantId": "11111111-1111-4111-8111-111111111111",
-      "code": "JEW-KUN-03",
-      "name": "Layered Emerald Kundan Haar",
-      "description": "A luxurious multi-layered necklace strung with high-grade synthetic emerald beads and Kundan side-brooches.",
-      "category": "Jewelry",
-      "subcategory": "Kundan",
-      "price": 8500,
-      "salePrice": 7800,
-      "stock": 4,
+      "code": "SAR-PAT-03",
+      "name": "Midnight Blue Patola Handloom Saree",
+      "description": "A vibrant and mathematically precise Patola saree crafted from pure ikat silk, featuring mesmerising double ikat patterns. A true collector's item offering a flawless drape and rich heritage.",
+      "category": "Sarees",
+      "subcategory": "Patola",
+      "price": 23600,
+      "salePrice": 22400,
+      "stock": 6,
       "lowStockThreshold": 2,
       "attributes": {
-        "material": "Brass Alloy, Gold Plated",
-        "stones": "Synthetic Emerald Beads, Kundan",
-        "setIncludes": "Layered Necklace",
-        "occasion": "Reception, Party Wear"
+        "fabric": "Pure Ikat Silk",
+        "primaryColor": "Midnight Blue",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Reception, Cocktail",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
       },
       "tags": [
-        "kundan",
-        "layered necklace",
-        "emerald beads",
-        "green jewelry",
-        "party wear"
+        "midnight blue",
+        "patola",
+        "pure ikat silk",
+        "muted matte zari",
+        "handloom",
+        "reception",
+        "cocktail",
+        "saree"
       ],
-      "searchText": "layered emerald kundan haar multi-layered necklace synthetic emerald beads side-brooches reception",
-      "embeddingText": "Drape yourself in luxury with this Layered Emerald Kundan Haar. Five strings of smooth, rich green synthetic emerald beads are held together by dazzling floral Kundan brooches on the sides. This necklace adds an incredible pop of color against ivory, black, or gold outfits, giving off a highly sophisticated, royal maharani vibe.",
+      "searchText": "midnight blue patola saree pure ikat silk muted matte zari reception cocktail",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Midnight Blue Patola saree, meticulously woven using Pure Ikat Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Featuring mesmerizing double ikat geometric patterns, the pallu transitions seamlessly, reflecting the mathematical precision of ancestral weavers. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, cocktail celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
       "imageUrls": [
-        "https://images.unsplash.com/photo-1601121141461-9d6647bca1ed",
-        "https://images.unsplash.com/photo-1611591437281-460bfbe1220a"
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000021",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-ORG-01",
+      "name": "Pastel Peach Organza Handloom Saree",
+      "description": "A breathtakingly sheer Organza saree in pastel peach, offering a weightless and ethereal drape. Adorned with delicate floral elements, it brings modern romance to classic handlooms.",
+      "category": "Sarees",
+      "subcategory": "Organza",
+      "price": 28300,
+      "salePrice": 27400,
+      "stock": 16,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Organza",
+        "primaryColor": "Pastel Peach",
+        "zariType": "Silver Zari",
+        "occasion": "Reception, Cocktail",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure organza",
+        "organza",
+        "reception",
+        "handloom",
+        "cocktail",
+        "pastel peach",
+        "saree",
+        "silver zari"
+      ],
+      "searchText": "pastel peach organza saree pure organza silver zari reception cocktail",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Pastel Peach Organza saree, meticulously woven using Pure Organza. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The sheer, lightweight pallu floats with ethereal grace, accented by delicate floral motifs that catch the light effortlessly. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, cocktail celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000022",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-ORG-02",
+      "name": "Lavender Purple Organza Handloom Saree",
+      "description": "A breathtakingly sheer Organza saree in lavender purple, offering a weightless and ethereal drape. Adorned with delicate floral elements, it brings modern romance to classic handlooms.",
+      "category": "Sarees",
+      "subcategory": "Organza",
+      "price": 8000,
+      "salePrice": 7500,
+      "stock": 18,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Organza",
+        "primaryColor": "Lavender Purple",
+        "zariType": "Silver Zari",
+        "occasion": "Festive, Party",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure organza",
+        "organza",
+        "lavender purple",
+        "festive",
+        "handloom",
+        "saree",
+        "silver zari",
+        "party"
+      ],
+      "searchText": "lavender purple organza saree pure organza silver zari festive party",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Lavender Purple Organza saree, meticulously woven using Pure Organza. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The sheer, lightweight pallu floats with ethereal grace, accented by delicate floral motifs that catch the light effortlessly. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, party celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000023",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-ORG-03",
+      "name": "Ivory White Organza Handloom Saree",
+      "description": "A breathtakingly sheer Organza saree in ivory white, offering a weightless and ethereal drape. Adorned with delicate floral elements, it brings modern romance to classic handlooms.",
+      "category": "Sarees",
+      "subcategory": "Organza",
+      "price": 7400,
+      "salePrice": 7300,
+      "stock": 16,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Organza",
+        "primaryColor": "Ivory White",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Day Wedding, Brunch",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure organza",
+        "organza",
+        "brunch",
+        "muted matte zari",
+        "handloom",
+        "day wedding",
+        "saree",
+        "ivory white"
+      ],
+      "searchText": "ivory white organza saree pure organza muted matte zari day wedding brunch",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Ivory White Organza saree, meticulously woven using Pure Organza. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The sheer, lightweight pallu floats with ethereal grace, accented by delicate floral motifs that catch the light effortlessly. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for day wedding, brunch celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000024",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-TUS-01",
+      "name": "Earthy Brown Tussar Handloom Saree",
+      "description": "Celebrate natural elegance with this richly textured Tussar saree woven in tussar silk. Its earthy charm and porous comfort make it a versatile choice for any grand occasion.",
+      "category": "Sarees",
+      "subcategory": "Tussar",
+      "price": 22700,
+      "salePrice": 22600,
+      "stock": 5,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Tussar Silk",
+        "primaryColor": "Earthy Brown",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Festive, Puja",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "tussar silk",
+        "earthy brown",
+        "tussar",
+        "antique gold zari",
+        "festive",
+        "puja",
+        "handloom",
+        "saree"
+      ],
+      "searchText": "earthy brown tussar saree tussar silk antique gold zari festive puja",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Earthy Brown Tussar saree, meticulously woven using Tussar Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A richly textured pallu highlights the natural gold sheen of the silk, complemented by tribal-inspired woven borders. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000025",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-TUS-02",
+      "name": "Olive Green Tussar Handloom Saree",
+      "description": "Celebrate natural elegance with this richly textured Tussar saree woven in tussar silk. Its earthy charm and porous comfort make it a versatile choice for any grand occasion.",
+      "category": "Sarees",
+      "subcategory": "Tussar",
+      "price": 27100,
+      "salePrice": 26400,
+      "stock": 18,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Tussar Silk",
+        "primaryColor": "Olive Green",
+        "zariType": "None",
+        "occasion": "Casual, Office Wear",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "tussar silk",
+        "casual",
+        "tussar",
+        "olive green",
+        "handloom",
+        "saree",
+        "office wear"
+      ],
+      "searchText": "olive green tussar saree tussar silk none casual office wear",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Olive Green Tussar saree, meticulously woven using Tussar Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A richly textured pallu highlights the natural gold sheen of the silk, complemented by tribal-inspired woven borders. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for casual, office wear celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000026",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-TUS-03",
+      "name": "Rust Orange Tussar Handloom Saree",
+      "description": "Celebrate natural elegance with this richly textured Tussar saree woven in tussar silk. Its earthy charm and porous comfort make it a versatile choice for any grand occasion.",
+      "category": "Sarees",
+      "subcategory": "Tussar",
+      "price": 9000,
+      "salePrice": 8300,
+      "stock": 14,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Tussar Silk",
+        "primaryColor": "Rust Orange",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Festive, Diwali",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "rust orange",
+        "tussar silk",
+        "tussar",
+        "festive",
+        "diwali",
+        "muted matte zari",
+        "handloom",
+        "saree"
+      ],
+      "searchText": "rust orange tussar saree tussar silk muted matte zari festive diwali",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Rust Orange Tussar saree, meticulously woven using Tussar Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A richly textured pallu highlights the natural gold sheen of the silk, complemented by tribal-inspired woven borders. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, diwali celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000027",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-JAM-01",
+      "name": "Off White Jamdani Handloom Saree",
+      "description": "A masterful Jamdani saree, featuring intricate floating motifs woven painstakingly by hand. The sheer pure muslin cotton ensures a breathable, feather-light drape perfect for daywear elegance.",
+      "category": "Sarees",
+      "subcategory": "Jamdani",
+      "price": 23900,
+      "salePrice": 22700,
+      "stock": 18,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Muslin Cotton",
+        "primaryColor": "Off White",
+        "zariType": "Silver Zari",
+        "occasion": "Day Event, Puja",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "day event",
+        "pure muslin cotton",
+        "jamdani",
+        "puja",
+        "handloom",
+        "off white",
+        "saree",
+        "silver zari"
+      ],
+      "searchText": "off white jamdani saree pure muslin cotton silver zari day event puja",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Off White Jamdani saree, meticulously woven using Pure Muslin Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The pallu reveals a breathtaking tapestry of floating motifs, meticulously woven directly into the sheer fabric using supplementary weft techniques. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for day event, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000028",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-JAM-02",
+      "name": "Mint Green Jamdani Handloom Saree",
+      "description": "A masterful Jamdani saree, featuring intricate floating motifs woven painstakingly by hand. The sheer pure muslin cotton ensures a breathable, feather-light drape perfect for daywear elegance.",
+      "category": "Sarees",
+      "subcategory": "Jamdani",
+      "price": 31200,
+      "salePrice": 29900,
+      "stock": 12,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Muslin Cotton",
+        "primaryColor": "Mint Green",
+        "zariType": "None",
+        "occasion": "Casual, Brunch",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "casual",
+        "mint green",
+        "pure muslin cotton",
+        "brunch",
+        "jamdani",
+        "handloom",
+        "saree"
+      ],
+      "searchText": "mint green jamdani saree pure muslin cotton none casual brunch",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Mint Green Jamdani saree, meticulously woven using Pure Muslin Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The pallu reveals a breathtaking tapestry of floating motifs, meticulously woven directly into the sheer fabric using supplementary weft techniques. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for casual, brunch celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000029",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-JAM-03",
+      "name": "Blush Pink Jamdani Handloom Saree",
+      "description": "A masterful Jamdani saree, featuring intricate floating motifs woven painstakingly by hand. The sheer silk jamdani ensures a breathable, feather-light drape perfect for daywear elegance.",
+      "category": "Sarees",
+      "subcategory": "Jamdani",
+      "price": 15500,
+      "salePrice": 14300,
+      "stock": 12,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Silk Jamdani",
+        "primaryColor": "Blush Pink",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Festive, Haldi",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "haldi",
+        "festive",
+        "jamdani",
+        "handloom",
+        "silk jamdani",
+        "saree",
+        "blush pink",
+        "pure gold zari"
+      ],
+      "searchText": "blush pink jamdani saree silk jamdani pure gold zari festive haldi",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Blush Pink Jamdani saree, meticulously woven using Silk Jamdani. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The pallu reveals a breathtaking tapestry of floating motifs, meticulously woven directly into the sheer fabric using supplementary weft techniques. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, haldi celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000030",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-04",
+      "name": "Ruby Red Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with pure gold zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 26400,
+      "salePrice": 25900,
+      "stock": 12,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Ruby Red",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure kanchipuram silk",
+        "wedding",
+        "bridal",
+        "pure gold zari",
+        "ruby red",
+        "handloom",
+        "saree",
+        "kanjeevaram"
+      ],
+      "searchText": "ruby red kanjeevaram saree pure kanchipuram silk pure gold zari bridal wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Ruby Red Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000031",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-05",
+      "name": "Mango Yellow Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with pure gold zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 10400,
+      "salePrice": 9300,
+      "stock": 17,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Mango Yellow",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Haldi, Wedding",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "haldi",
+        "pure kanchipuram silk",
+        "wedding",
+        "pure gold zari",
+        "mango yellow",
+        "handloom",
+        "saree",
+        "kanjeevaram"
+      ],
+      "searchText": "mango yellow kanjeevaram saree pure kanchipuram silk pure gold zari haldi wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Mango Yellow Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for haldi, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000032",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-06",
+      "name": "Royal Blue Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with antique gold zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 21800,
+      "salePrice": 21800,
+      "stock": 12,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Royal Blue",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Reception, Festive",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure kanchipuram silk",
+        "antique gold zari",
+        "festive",
+        "royal blue",
+        "reception",
+        "handloom",
+        "saree",
+        "kanjeevaram"
+      ],
+      "searchText": "royal blue kanjeevaram saree pure kanchipuram silk antique gold zari reception festive",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Royal Blue Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, festive celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000033",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-05",
+      "name": "Deep Maroon Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in katan silk, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 23800,
+      "salePrice": 23200,
+      "stock": 12,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Katan Silk",
+        "primaryColor": "Deep Maroon",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "deep maroon",
+        "katan silk",
+        "banarasi",
+        "wedding",
+        "bridal",
+        "handloom",
+        "saree",
+        "pure gold zari"
+      ],
+      "searchText": "deep maroon banarasi saree katan silk pure gold zari bridal wedding",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Deep Maroon Banarasi saree, meticulously woven using Katan Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000034",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-06",
+      "name": "Magenta Pink Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in georgette banarasi, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 12500,
+      "salePrice": 11400,
+      "stock": 19,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Georgette Banarasi",
+        "primaryColor": "Magenta Pink",
+        "zariType": "Silver Zari",
+        "occasion": "Reception, Cocktail",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "georgette banarasi",
+        "banarasi",
+        "reception",
+        "handloom",
+        "cocktail",
+        "magenta pink",
+        "saree",
+        "silver zari"
+      ],
+      "searchText": "magenta pink banarasi saree georgette banarasi silver zari reception cocktail",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Magenta Pink Banarasi saree, meticulously woven using Georgette Banarasi. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, cocktail celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000035",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-07",
+      "name": "Teal Blue Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in katan silk, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 27600,
+      "salePrice": 26500,
+      "stock": 17,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Katan Silk",
+        "primaryColor": "Teal Blue",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Festive, Reception",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "katan silk",
+        "banarasi",
+        "antique gold zari",
+        "festive",
+        "teal blue",
+        "reception",
+        "handloom",
+        "saree"
+      ],
+      "searchText": "teal blue banarasi saree katan silk antique gold zari festive reception",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Teal Blue Banarasi saree, meticulously woven using Katan Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, reception celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000036",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-MAH-01",
+      "name": "Jet Black Maheshwari Handloom Saree",
+      "description": "A refined Maheshwari saree known for its feather-light comfort and distinctive reversible borders. Crafted from maheshwari silk cotton, it offers an understated yet incredibly sophisticated aesthetic.",
+      "category": "Sarees",
+      "subcategory": "Maheshwari",
+      "price": 19100,
+      "salePrice": 17600,
+      "stock": 15,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Maheshwari Silk Cotton",
+        "primaryColor": "Jet Black",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Cocktail, Evening",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "evening",
+        "maheshwari",
+        "jet black",
+        "handloom",
+        "maheshwari silk cotton",
+        "muted matte zari",
+        "cocktail",
+        "saree"
+      ],
+      "searchText": "jet black maheshwari saree maheshwari silk cotton muted matte zari cocktail evening",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Jet Black Maheshwari saree, meticulously woven using Maheshwari Silk Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Distinctive reversible borders lead to a refined pallu accented with elegant stripes and subtle, understated woven detailing. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for cocktail, evening celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000037",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-MAH-02",
+      "name": "Coral Peach Maheshwari Handloom Saree",
+      "description": "A refined Maheshwari saree known for its feather-light comfort and distinctive reversible borders. Crafted from maheshwari silk cotton, it offers an understated yet incredibly sophisticated aesthetic.",
+      "category": "Sarees",
+      "subcategory": "Maheshwari",
+      "price": 18600,
+      "salePrice": 18500,
+      "stock": 13,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Maheshwari Silk Cotton",
+        "primaryColor": "Coral Peach",
+        "zariType": "None",
+        "occasion": "Day Event, Office",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "day event",
+        "office",
+        "maheshwari",
+        "handloom",
+        "maheshwari silk cotton",
+        "saree",
+        "coral peach"
+      ],
+      "searchText": "coral peach maheshwari saree maheshwari silk cotton none day event office",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Coral Peach Maheshwari saree, meticulously woven using Maheshwari Silk Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Distinctive reversible borders lead to a refined pallu accented with elegant stripes and subtle, understated woven detailing. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for day event, office celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000038",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-MAH-03",
+      "name": "Turquoise Blue Maheshwari Handloom Saree",
+      "description": "A refined Maheshwari saree known for its feather-light comfort and distinctive reversible borders. Crafted from maheshwari silk cotton, it offers an understated yet incredibly sophisticated aesthetic.",
+      "category": "Sarees",
+      "subcategory": "Maheshwari",
+      "price": 12200,
+      "salePrice": 11000,
+      "stock": 10,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Maheshwari Silk Cotton",
+        "primaryColor": "Turquoise Blue",
+        "zariType": "Silver Zari",
+        "occasion": "Festive, Puja",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "turquoise blue",
+        "maheshwari",
+        "festive",
+        "puja",
+        "handloom",
+        "maheshwari silk cotton",
+        "saree",
+        "silver zari"
+      ],
+      "searchText": "turquoise blue maheshwari saree maheshwari silk cotton silver zari festive puja",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Turquoise Blue Maheshwari saree, meticulously woven using Maheshwari Silk Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Distinctive reversible borders lead to a refined pallu accented with elegant stripes and subtle, understated woven detailing. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000039",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-GEO-01",
+      "name": "Wine Red Georgette Handloom Saree",
+      "description": "A fluid and glamorous Georgette saree in wine red, promising an exceptionally flattering and body-hugging drape. Enriched with heritage weaving for evening cocktail perfection.",
+      "category": "Sarees",
+      "subcategory": "Georgette",
+      "price": 13400,
+      "salePrice": 13100,
+      "stock": 13,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Georgette",
+        "primaryColor": "Wine Red",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Reception, Cocktail",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "georgette",
+        "antique gold zari",
+        "wine red",
+        "reception",
+        "handloom",
+        "pure georgette",
+        "cocktail",
+        "saree"
+      ],
+      "searchText": "wine red georgette saree pure georgette antique gold zari reception cocktail",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Wine Red Georgette saree, meticulously woven using Pure Georgette. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The fluid pallu drapes seamlessly, carrying intricate zari work that adds a touch of glamour without compromising on comfort. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, cocktail celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000040",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-LIN-04",
+      "name": "Charcoal Grey Linen Handloom Saree",
+      "description": "A contemporary organic Linen saree that perfectly balances rustic texture with modern minimalism. Extremely breathable and effortlessly chic for daytime professional or casual gatherings.",
+      "category": "Sarees",
+      "subcategory": "Linen",
+      "price": 30400,
+      "salePrice": 30200,
+      "stock": 19,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Organic Linen",
+        "primaryColor": "Charcoal Grey",
+        "zariType": "Silver Zari",
+        "occasion": "Office Wear, Casual",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "casual",
+        "charcoal grey",
+        "organic linen",
+        "handloom",
+        "saree",
+        "silver zari",
+        "office wear",
+        "linen"
+      ],
+      "searchText": "charcoal grey linen saree organic linen silver zari office wear casual",
+      "embeddingText": "Experience the epitome of handloom luxury with this captivating Charcoal Grey Linen saree, meticulously woven using Organic Linen. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A minimalist and breathable pallu brings contemporary sophistication, featuring clean woven lines that embrace natural elegance. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for office wear, casual celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000041",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-07",
+      "name": "Bottle Green Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with pure gold zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 31700,
+      "salePrice": 30300,
+      "stock": 18,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Bottle Green",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure gold zari",
+        "saree",
+        "kanjeevaram",
+        "handloom",
+        "wedding",
+        "bridal",
+        "bottle green",
+        "pure kanchipuram silk"
+      ],
+      "searchText": "bottle green kanjeevaram saree pure kanchipuram silk pure gold zari bridal wedding",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Bottle Green Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000042",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-08",
+      "name": "Bright Fuchsia Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with silver zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 19000,
+      "salePrice": 18300,
+      "stock": 5,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Bright Fuchsia",
+        "zariType": "Silver Zari",
+        "occasion": "Reception, Festive",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "silver zari",
+        "saree",
+        "kanjeevaram",
+        "handloom",
+        "reception",
+        "festive",
+        "bright fuchsia",
+        "pure kanchipuram silk"
+      ],
+      "searchText": "bright fuchsia kanjeevaram saree pure kanchipuram silk silver zari reception festive",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Bright Fuchsia Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, festive celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000043",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-KAN-09",
+      "name": "Lilac Purple Kanjeevaram Handloom Saree",
+      "description": "A regal Kanjeevaram silk saree boasting brilliant luster and structural magnificence. Handwoven with muted matte zari, its heavy traditional border is a testament to timeless southern craftsmanship.",
+      "category": "Sarees",
+      "subcategory": "Kanjeevaram",
+      "price": 12300,
+      "salePrice": 11300,
+      "stock": 17,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Kanchipuram Silk",
+        "primaryColor": "Lilac Purple",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Day Wedding, Puja",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "puja",
+        "muted matte zari",
+        "saree",
+        "kanjeevaram",
+        "handloom",
+        "day wedding",
+        "lilac purple",
+        "pure kanchipuram silk"
+      ],
+      "searchText": "lilac purple kanjeevaram saree pure kanchipuram silk muted matte zari day wedding puja",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Lilac Purple Kanjeevaram saree, meticulously woven using Pure Kanchipuram Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A heavily brocaded pallu features temple borders and mythological figures, radiating a brilliant luster signature to southern looms. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for day wedding, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000044",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-08",
+      "name": "Burnt Orange Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in katan silk, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 31900,
+      "salePrice": 31600,
+      "stock": 12,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Katan Silk",
+        "primaryColor": "Burnt Orange",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Bridal, Wedding",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "katan silk",
+        "saree",
+        "banarasi",
+        "antique gold zari",
+        "handloom",
+        "wedding",
+        "burnt orange",
+        "bridal"
+      ],
+      "searchText": "burnt orange banarasi saree katan silk antique gold zari bridal wedding",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Burnt Orange Banarasi saree, meticulously woven using Katan Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000045",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-09",
+      "name": "Navy Blue Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in georgette banarasi, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 25100,
+      "salePrice": 23900,
+      "stock": 17,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Georgette Banarasi",
+        "primaryColor": "Navy Blue",
+        "zariType": "Silver Zari",
+        "occasion": "Reception, Cocktail",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "georgette banarasi",
+        "silver zari",
+        "saree",
+        "banarasi",
+        "reception",
+        "handloom",
+        "cocktail",
+        "navy blue"
+      ],
+      "searchText": "navy blue banarasi saree georgette banarasi silver zari reception cocktail",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Navy Blue Banarasi saree, meticulously woven using Georgette Banarasi. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, cocktail celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000046",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-BAN-10",
+      "name": "Blush Pink Banarasi Handloom Saree",
+      "description": "An opulent Banarasi drape in katan silk, rich with heritage floral jaal weaving. This resplendent masterpiece guarantees a royal presence at any evening gala or wedding.",
+      "category": "Sarees",
+      "subcategory": "Banarasi",
+      "price": 27600,
+      "salePrice": 27400,
+      "stock": 14,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Katan Silk",
+        "primaryColor": "Blush Pink",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Wedding, Haldi",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "katan silk",
+        "pure gold zari",
+        "blush pink",
+        "banarasi",
+        "saree",
+        "handloom",
+        "wedding",
+        "haldi"
+      ],
+      "searchText": "blush pink banarasi saree katan silk pure gold zari wedding haldi",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Blush Pink Banarasi saree, meticulously woven using Katan Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The opulent pallu drips with regal grandeur, featuring dense floral jaal and paisley bootis that shimmer with every movement. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for wedding, haldi celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000047",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-PAI-04",
+      "name": "Royal Purple Paithani Handloom Saree",
+      "description": "An exquisite heirloom Paithani saree handwoven in pure mulberry silk, showcasing the iconic motifs and traditional borders. An auspicious masterpiece for traditional weddings and grand receptions.",
+      "category": "Sarees",
+      "subcategory": "Paithani",
+      "price": 21900,
+      "salePrice": 20400,
+      "stock": 19,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Mulberry Silk",
+        "primaryColor": "Royal Purple",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Bridal, Reception",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure gold zari",
+        "royal purple",
+        "paithani",
+        "saree",
+        "reception",
+        "handloom",
+        "bridal",
+        "pure mulberry silk"
+      ],
+      "searchText": "royal purple paithani saree pure mulberry silk pure gold zari bridal reception",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Royal Purple Paithani saree, meticulously woven using Pure Mulberry Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The majestic pallu is a canvas of intricate artistry, showcasing vibrant parrot and peacock motifs intricately woven with traditional techniques. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for bridal, reception celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000048",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-PAI-05",
+      "name": "Saffron Yellow Paithani Handloom Saree",
+      "description": "An exquisite heirloom Paithani saree handwoven in pure mulberry silk, showcasing the iconic motifs and traditional borders. An auspicious masterpiece for traditional weddings and grand receptions.",
+      "category": "Sarees",
+      "subcategory": "Paithani",
+      "price": 27700,
+      "salePrice": 27600,
+      "stock": 10,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Mulberry Silk",
+        "primaryColor": "Saffron Yellow",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Haldi, Puja",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "puja",
+        "saffron yellow",
+        "paithani",
+        "saree",
+        "antique gold zari",
+        "handloom",
+        "haldi",
+        "pure mulberry silk"
+      ],
+      "searchText": "saffron yellow paithani saree pure mulberry silk antique gold zari haldi puja",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Saffron Yellow Paithani saree, meticulously woven using Pure Mulberry Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The majestic pallu is a canvas of intricate artistry, showcasing vibrant parrot and peacock motifs intricately woven with traditional techniques. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for haldi, puja celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000049",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-PAT-04",
+      "name": "Magenta Pink Patola Handloom Saree",
+      "description": "A vibrant and mathematically precise Patola saree crafted from pure ikat silk, featuring mesmerising double ikat patterns. A true collector's item offering a flawless drape and rich heritage.",
+      "category": "Sarees",
+      "subcategory": "Patola",
+      "price": 19700,
+      "salePrice": 18200,
+      "stock": 19,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Ikat Silk",
+        "primaryColor": "Magenta Pink",
+        "zariType": "None",
+        "occasion": "Festive, Wedding",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "magenta pink",
+        "pure ikat silk",
+        "patola",
+        "saree",
+        "handloom",
+        "wedding",
+        "festive"
+      ],
+      "searchText": "magenta pink patola saree pure ikat silk none festive wedding",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Magenta Pink Patola saree, meticulously woven using Pure Ikat Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Featuring mesmerizing double ikat geometric patterns, the pallu transitions seamlessly, reflecting the mathematical precision of ancestral weavers. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for festive, wedding celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000050",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-PAT-05",
+      "name": "Teal Green Patola Handloom Saree",
+      "description": "A vibrant and mathematically precise Patola saree crafted from pure ikat silk, featuring mesmerising double ikat patterns. A true collector's item offering a flawless drape and rich heritage.",
+      "category": "Sarees",
+      "subcategory": "Patola",
+      "price": 11900,
+      "salePrice": 10900,
+      "stock": 6,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Ikat Silk",
+        "primaryColor": "Teal Green",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Reception, Party",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "muted matte zari",
+        "pure ikat silk",
+        "teal green",
+        "patola",
+        "saree",
+        "reception",
+        "handloom",
+        "party"
+      ],
+      "searchText": "teal green patola saree pure ikat silk muted matte zari reception party",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Teal Green Patola saree, meticulously woven using Pure Ikat Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Featuring mesmerizing double ikat geometric patterns, the pallu transitions seamlessly, reflecting the mathematical precision of ancestral weavers. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for reception, party celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b",
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000051",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-ORG-04",
+      "name": "Mint Green Organza Handloom Saree",
+      "description": "A breathtakingly sheer Organza saree in mint green, offering a weightless and ethereal drape. Adorned with delicate floral elements, it brings modern romance to classic handlooms.",
+      "category": "Sarees",
+      "subcategory": "Organza",
+      "price": 6100,
+      "salePrice": 4800,
+      "stock": 20,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Organza",
+        "primaryColor": "Mint Green",
+        "zariType": "Silver Zari",
+        "occasion": "Brunch, Day Event",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "mint green",
+        "day event",
+        "silver zari",
+        "pure organza",
+        "saree",
+        "organza",
+        "brunch",
+        "handloom"
+      ],
+      "searchText": "mint green organza saree pure organza silver zari brunch day event",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Mint Green Organza saree, meticulously woven using Pure Organza. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The sheer, lightweight pallu floats with ethereal grace, accented by delicate floral motifs that catch the light effortlessly. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for brunch, day event celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000052",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-ORG-05",
+      "name": "Ice Blue Organza Handloom Saree",
+      "description": "A breathtakingly sheer Organza saree in ice blue, offering a weightless and ethereal drape. Adorned with delicate floral elements, it brings modern romance to classic handlooms.",
+      "category": "Sarees",
+      "subcategory": "Organza",
+      "price": 6400,
+      "salePrice": 5500,
+      "stock": 18,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Pure Organza",
+        "primaryColor": "Ice Blue",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Cocktail, Reception",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "ice blue",
+        "muted matte zari",
+        "pure organza",
+        "saree",
+        "organza",
+        "reception",
+        "handloom",
+        "cocktail"
+      ],
+      "searchText": "ice blue organza saree pure organza muted matte zari cocktail reception",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Ice Blue Organza saree, meticulously woven using Pure Organza. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The sheer, lightweight pallu floats with ethereal grace, accented by delicate floral motifs that catch the light effortlessly. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for cocktail, reception celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000053",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-TUS-04",
+      "name": "Maroon Red Tussar Handloom Saree",
+      "description": "Celebrate natural elegance with this richly textured Tussar saree woven in tussar silk. Its earthy charm and porous comfort make it a versatile choice for any grand occasion.",
+      "category": "Sarees",
+      "subcategory": "Tussar",
+      "price": 10600,
+      "salePrice": 10000,
+      "stock": 14,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Tussar Silk",
+        "primaryColor": "Maroon Red",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Festive, Diwali",
+        "weight": "820g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "tussar silk",
+        "diwali",
+        "tussar",
+        "saree",
+        "maroon red",
+        "antique gold zari",
+        "handloom",
+        "festive"
+      ],
+      "searchText": "maroon red tussar saree tussar silk antique gold zari festive diwali",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Maroon Red Tussar saree, meticulously woven using Tussar Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A richly textured pallu highlights the natural gold sheen of the silk, complemented by tribal-inspired woven borders. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, diwali celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000054",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-TUS-05",
+      "name": "Beige Gold Tussar Handloom Saree",
+      "description": "Celebrate natural elegance with this richly textured Tussar saree woven in tussar silk. Its earthy charm and porous comfort make it a versatile choice for any grand occasion.",
+      "category": "Sarees",
+      "subcategory": "Tussar",
+      "price": 10800,
+      "salePrice": 10500,
+      "stock": 7,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Tussar Silk",
+        "primaryColor": "Beige Gold",
+        "zariType": "None",
+        "occasion": "Office Wear, Casual",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "beige gold",
+        "tussar silk",
+        "tussar",
+        "office wear",
+        "saree",
+        "handloom",
+        "casual"
+      ],
+      "searchText": "beige gold tussar saree tussar silk none office wear casual",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Beige Gold Tussar saree, meticulously woven using Tussar Silk. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A richly textured pallu highlights the natural gold sheen of the silk, complemented by tribal-inspired woven borders. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for office wear, casual celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a",
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000055",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-JAM-04",
+      "name": "Lemon Yellow Jamdani Handloom Saree",
+      "description": "A masterful Jamdani saree, featuring intricate floating motifs woven painstakingly by hand. The sheer pure muslin cotton ensures a breathable, feather-light drape perfect for daywear elegance.",
+      "category": "Sarees",
+      "subcategory": "Jamdani",
+      "price": 30100,
+      "salePrice": 29800,
+      "stock": 7,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Muslin Cotton",
+        "primaryColor": "Lemon Yellow",
+        "zariType": "Silver Zari",
+        "occasion": "Haldi, Day Event",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "jamdani",
+        "day event",
+        "lemon yellow",
+        "silver zari",
+        "saree",
+        "pure muslin cotton",
+        "handloom",
+        "haldi"
+      ],
+      "searchText": "lemon yellow jamdani saree pure muslin cotton silver zari haldi day event",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Lemon Yellow Jamdani saree, meticulously woven using Pure Muslin Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The pallu reveals a breathtaking tapestry of floating motifs, meticulously woven directly into the sheer fabric using supplementary weft techniques. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for haldi, day event celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000056",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-JAM-05",
+      "name": "Powder Blue Jamdani Handloom Saree",
+      "description": "A masterful Jamdani saree, featuring intricate floating motifs woven painstakingly by hand. The sheer silk jamdani ensures a breathable, feather-light drape perfect for daywear elegance.",
+      "category": "Sarees",
+      "subcategory": "Jamdani",
+      "price": 12600,
+      "salePrice": 12500,
+      "stock": 12,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Silk Jamdani",
+        "primaryColor": "Powder Blue",
+        "zariType": "None",
+        "occasion": "Brunch, Casual",
+        "weight": "680g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "jamdani",
+        "silk jamdani",
+        "powder blue",
+        "saree",
+        "brunch",
+        "handloom",
+        "casual"
+      ],
+      "searchText": "powder blue jamdani saree silk jamdani none brunch casual",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Powder Blue Jamdani saree, meticulously woven using Silk Jamdani. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The pallu reveals a breathtaking tapestry of floating motifs, meticulously woven directly into the sheer fabric using supplementary weft techniques. Free from zari, the design relies purely on the interplay of vibrant dyed yarns and masterful weaving. Perfectly curated for brunch, casual celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000057",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-MAH-04",
+      "name": "Ruby Red Maheshwari Handloom Saree",
+      "description": "A refined Maheshwari saree known for its feather-light comfort and distinctive reversible borders. Crafted from maheshwari silk cotton, it offers an understated yet incredibly sophisticated aesthetic.",
+      "category": "Sarees",
+      "subcategory": "Maheshwari",
+      "price": 25800,
+      "salePrice": 25600,
+      "stock": 14,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Maheshwari Silk Cotton",
+        "primaryColor": "Ruby Red",
+        "zariType": "Pure Gold Zari",
+        "occasion": "Festive, Evening",
+        "weight": "520g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "pure gold zari",
+        "evening",
+        "ruby red",
+        "saree",
+        "maheshwari silk cotton",
+        "handloom",
+        "festive",
+        "maheshwari"
+      ],
+      "searchText": "ruby red maheshwari saree maheshwari silk cotton pure gold zari festive evening",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Ruby Red Maheshwari saree, meticulously woven using Maheshwari Silk Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Distinctive reversible borders lead to a refined pallu accented with elegant stripes and subtle, understated woven detailing. Enhanced with luxurious pure gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for festive, evening celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000058",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-MAH-05",
+      "name": "Forest Green Maheshwari Handloom Saree",
+      "description": "A refined Maheshwari saree known for its feather-light comfort and distinctive reversible borders. Crafted from maheshwari silk cotton, it offers an understated yet incredibly sophisticated aesthetic.",
+      "category": "Sarees",
+      "subcategory": "Maheshwari",
+      "price": 32000,
+      "salePrice": 32000,
+      "stock": 10,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Maheshwari Silk Cotton",
+        "primaryColor": "Forest Green",
+        "zariType": "Antique Gold Zari",
+        "occasion": "Puja, Office Wear",
+        "weight": "450g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "puja",
+        "office wear",
+        "saree",
+        "antique gold zari",
+        "maheshwari silk cotton",
+        "handloom",
+        "forest green",
+        "maheshwari"
+      ],
+      "searchText": "forest green maheshwari saree maheshwari silk cotton antique gold zari puja office wear",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Forest Green Maheshwari saree, meticulously woven using Maheshwari Silk Cotton. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. Distinctive reversible borders lead to a refined pallu accented with elegant stripes and subtle, understated woven detailing. Enhanced with luxurious antique gold zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for puja, office wear celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000059",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-GEO-02",
+      "name": "Dusty Rose Georgette Handloom Saree",
+      "description": "A fluid and glamorous Georgette saree in dusty rose, promising an exceptionally flattering and body-hugging drape. Enriched with heritage weaving for evening cocktail perfection.",
+      "category": "Sarees",
+      "subcategory": "Georgette",
+      "price": 22600,
+      "salePrice": 21900,
+      "stock": 10,
+      "lowStockThreshold": 2,
+      "attributes": {
+        "fabric": "Pure Georgette",
+        "primaryColor": "Dusty Rose",
+        "zariType": "Silver Zari",
+        "occasion": "Cocktail, Reception",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "georgette",
+        "pure georgette",
+        "dusty rose",
+        "silver zari",
+        "saree",
+        "reception",
+        "handloom",
+        "cocktail"
+      ],
+      "searchText": "dusty rose georgette saree pure georgette silver zari cocktail reception",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Dusty Rose Georgette saree, meticulously woven using Pure Georgette. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. The fluid pallu drapes seamlessly, carrying intricate zari work that adds a touch of glamour without compromising on comfort. Enhanced with luxurious silver zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for cocktail, reception celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1608248593842-8086fc50a1ac",
+        "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b"
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000060",
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "code": "SAR-LIN-05",
+      "name": "Terracotta Brown Linen Handloom Saree",
+      "description": "A contemporary organic Linen saree that perfectly balances rustic texture with modern minimalism. Extremely breathable and effortlessly chic for daytime professional or casual gatherings.",
+      "category": "Sarees",
+      "subcategory": "Linen",
+      "price": 26100,
+      "salePrice": 25800,
+      "stock": 19,
+      "lowStockThreshold": 3,
+      "attributes": {
+        "fabric": "Organic Linen",
+        "primaryColor": "Terracotta Brown",
+        "zariType": "Muted Matte Zari",
+        "occasion": "Office Wear, Casual",
+        "weight": "750g",
+        "careInstructions": "Dry clean only. Store wrapped in breathable cotton or muslin fabric."
+      },
+      "tags": [
+        "organic linen",
+        "muted matte zari",
+        "office wear",
+        "saree",
+        "handloom",
+        "casual",
+        "linen",
+        "terracotta brown"
+      ],
+      "searchText": "terracotta brown linen saree organic linen muted matte zari office wear casual",
+      "embeddingText": "Experience the pinnacle of handloom luxury with this captivating Terracotta Brown Linen saree, meticulously woven using Organic Linen. This masterpiece embodies centuries of weaving heritage, presenting a fabric that feels extraordinarily soft against the skin while offering a majestic and structured drape. A minimalist and breathable pallu brings contemporary sophistication, featuring clean woven lines that embrace natural elegance. Enhanced with luxurious muted matte zari, the borders frame the silhouette with a radiant and celebratory glow. Perfectly curated for office wear, casual celebrations, this drape transcends fleeting trends. Style this exquisite six-yard wonder with a contrasting tailored blouse featuring elbow-length sleeves for a truly sophisticated, timeless ensemble.",
+      "imageUrls": [
+        "https://images.unsplash.com/photo-1583391733959-8c5f116fac5d",
+        "https://images.unsplash.com/photo-1583391733975-612501a2386a"
       ]
     }
   ]

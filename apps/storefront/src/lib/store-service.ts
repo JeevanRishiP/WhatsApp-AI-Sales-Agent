@@ -44,7 +44,7 @@ export const AURA_TENANT: StoreTenant = {
   ownerPhone: auraData.tenant.ownerPhone,
   whatsappPhoneNumber: auraData.tenant.ownerPhone,
   whatsappInstanceName: auraData.tenant.whatsappInstanceName,
-  businessCategory: 'Luxury Ethnic Wear & Sarees',
+  businessCategory: 'Luxury Handloom & Silk Sarees',
   storefrontTheme: {
     primaryColor: '#0C0C0C',
     accentColor: '#C5A880',
@@ -104,7 +104,7 @@ export async function getStoreTenant(slug: string): Promise<StoreTenant> {
           ownerPhone: tenant.ownerPhone,
           whatsappPhoneNumber: tenant.whatsappPhoneNumber || tenant.ownerPhone,
           whatsappInstanceName: tenant.whatsappInstanceName,
-          businessCategory: tenant.businessCategory || 'Luxury Ethnic Wear & Sarees',
+          businessCategory: tenant.businessCategory || 'Luxury Handloom & Silk Sarees',
           storefrontTheme: (tenant.storefrontTheme as any) || AURA_TENANT.storefrontTheme,
           storePolicies: (tenant.storePolicies as any) || AURA_TENANT.storePolicies,
         };
@@ -130,7 +130,7 @@ export async function getStoreTenant(slug: string): Promise<StoreTenant> {
         ownerPhone: tenant.ownerPhone,
         whatsappPhoneNumber: tenant.whatsappPhoneNumber || tenant.ownerPhone,
         whatsappInstanceName: tenant.whatsappInstanceName,
-        businessCategory: tenant.businessCategory || 'Luxury Ethnic Wear & Sarees',
+        businessCategory: tenant.businessCategory || 'Luxury Handloom & Silk Sarees',
         storefrontTheme: (tenant.storefrontTheme as any) || AURA_TENANT.storefrontTheme,
         storePolicies: (tenant.storePolicies as any) || AURA_TENANT.storePolicies,
       };
