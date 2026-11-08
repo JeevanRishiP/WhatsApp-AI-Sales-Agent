@@ -52,6 +52,8 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
           ...p,
           price: Number(p.price),
           salePrice: p.salePrice ? Number(p.salePrice) : null,
+          imageUrls: p.imageUrls || [],
+          thumbnailUrl: p.thumbnailUrl || (p.imageUrls && p.imageUrls.length > 0 ? p.imageUrls[0] : null),
         }))}
         categories={categories}
         total={productsResult.pagination.total}
