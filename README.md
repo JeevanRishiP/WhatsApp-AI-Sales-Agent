@@ -116,13 +116,22 @@ pnpm db:seed
 ```
 
 ### 5. Start the Entire System
-Run the all-in-one startup script (launches Docker, Redis, DB, ngrok tunnel, and dev servers):
+**Option A: 1-Click macOS Launchers**
+- Double-click **`Start System.command`** in Finder to launch Docker, Redis, DB, ngrok tunnel, and all web apps.
+- Double-click **`Stop System.command`** in Finder to cleanly shut down all services and containers.
+
+**Option B: CLI Scripts**
 ```bash
-chmod +x ./scripts/start-all.sh
-./scripts/start-all.sh
+# Start all services
+pnpm start:all
+# or: ./scripts/start-all.sh
+
+# Stop all services
+pnpm stop:all
+# or: ./scripts/stop-all.sh
 ```
 
-Or run dev mode manually:
+**Option C: Manual Dev Mode**
 ```bash
 pnpm dev
 ```
