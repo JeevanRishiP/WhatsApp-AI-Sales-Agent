@@ -42,11 +42,21 @@ export function isAddressConfirmation(
   if (!rawMessage || typeof rawMessage !== 'string') return false;
   const msg = rawMessage.trim().toLowerCase();
 
-  // 1. Exact button IDs or UI button text
+  // 1. Explicit address button IDs or explicit address confirmation phrases (always valid)
   if (
     msg === 'confirm_address' ||
     msg === 'proceed_to_pay' ||
     msg === 'deliver_here' ||
+    msg.includes('deliver here') ||
+    msg.includes('proceed to pay')
+  ) {
+    return true;
+  }
+
+  // 1B. Generic short affirmations ("ok", "yes", "proceed", "done", etc.)
+  // are ONLY address confirmations if the current stage is an address confirmation stage
+  // OR the assistant's last message explicitly asked to confirm or provide a delivery address!
+  const isGenericAffirmation =
     msg === 'yes' ||
     msg === 'yep' ||
     msg === 'yeah' ||
@@ -65,12 +75,26 @@ export function isAddressConfirmation(
     msg === 'right' ||
     msg === 'proceed' ||
     msg === 'confirm' ||
-    msg === 'pay' ||
-    msg === 'done' ||
-    msg.includes('deliver here') ||
-    msg.includes('proceed to pay')
-  ) {
-    return true;
+    msg === 'done';
+
+  if (isGenericAffirmation) {
+    const isAddressStage =
+      currentStage === 'CHECKOUT_CONFIRM' ||
+      currentStage === 'CHECKOUT_ADDRESS' ||
+      currentStage === 'ADDRESS_PENDING';
+
+    const lastMsgLower = (lastAssistantMessage || '').toLowerCase();
+    const assistantAskedAddress =
+      /\b(address|deliver to|delivering to|confirm.*address|saved address|pincode|pin code|shipping to)\b/i.test(
+        lastMsgLower
+      );
+
+    if (isAddressStage || assistantAskedAddress) {
+      return true;
+    }
+
+    // Otherwise, generic affirmation like "ok" is NOT an address confirmation
+    return false;
   }
 
   // 2. Guard against negation/change requests (e.g. "no, change address", "different address")

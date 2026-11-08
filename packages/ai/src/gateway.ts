@@ -372,7 +372,11 @@ export class AIGateway {
             ? matchSavedAddressSelection(req.currentMessage, req.context.savedDeliveryAddresses)
             : null;
 
-        if (!isImpersonatingExecutive && (isConfirmingAddress || matchedSavedAddress)) {
+        const hasCartOrPending =
+          (req.context.cartSummary && req.context.cartSummary.itemsCount > 0) ||
+          !!req.context.pendingOrderSummary;
+
+        if (!isImpersonatingExecutive && hasCartOrPending && (isConfirmingAddress || matchedSavedAddress)) {
           const targetAddress =
             matchedSavedAddress ||
             req.context.currentDeliveryAddress ||
@@ -391,6 +395,18 @@ export class AIGateway {
           parsed.stage = 'AWAITING_PAYMENT';
         }
 
+        // 3F2. Conversational acknowledgments when cart is empty or in post-order stage
+        const isConversationalAck = /^(ok|okay|k|cool|great|thanks|thank you|thx|sure|fine|done|got it|super|alright|all right|haan|ha|sari|accha|theek hai)\b/i.test(currentMsgLower.trim());
+
+        if (
+          isConversationalAck &&
+          (!hasCartOrPending || req.context.currentStage === 'POST_ORDER')
+        ) {
+          parsed.action = { action: 'NONE', reply: '' };
+          parsed.intent = 'CONVERSATIONAL_ACK';
+          parsed.message = `You're most welcome! 😊 We are preparing everything for you. If you need any assistance or want to explore our collections later, feel free to reach out anytime! ✨`;
+        }
+
         // 3G. General Checkout Intent Handling
         const isCheckoutIntent =
           isPaymentLinkRequest ||
@@ -405,6 +421,7 @@ export class AIGateway {
           !extractedAddress &&
           !isConfirmingAddress &&
           isCheckoutIntent &&
+          hasCartOrPending &&
           (!parsed.action || parsed.action.action === 'NONE')
         ) {
           if (req.context.pendingOrderSummary) {

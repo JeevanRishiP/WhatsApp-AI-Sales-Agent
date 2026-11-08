@@ -55,6 +55,22 @@ export interface PromptContext {
     createdAt: Date;
     paymentUrl: string;
   };
+  activeOrdersSummary?: Array<{
+    orderId: string;
+    orderNumber: string;
+    status: string;
+    courierPartner: string;
+    awbCode?: string;
+    currentLocation: string;
+    currentStatusLabel: string;
+    expectedDeliveryDate: string;
+    lastScanTime?: string;
+    items: string[];
+    total: number;
+    destinationCity?: string;
+    trackingUrl: string;
+    isDelivered: boolean;
+  }>;
 }
 
 export function buildSystemPrompt(ctx: PromptContext): string {
@@ -138,6 +154,41 @@ PENDING INCOMPLETE ORDER ALERT:
 `
     : '';
 
+  const activeOrdersSection = ctx.activeOrdersSummary && ctx.activeOrdersSummary.length > 0
+    ? `
+CUSTOMER ACTIVE ORDERS & DELHIVERY LOGISTICS CONTEXT:
+${ctx.activeOrdersSummary.map((o) => `
+- Order #${o.orderNumber}
+  • Current Status: ${o.status} (${o.currentStatusLabel})
+  • Courier Partner: Delhivery Express (Sandbox Mode)
+  • Delhivery Virtual Tracking ID / AWB: ${o.awbCode || 'Assigned upon packing'}
+  • Current Location AT PRESENT: ${o.currentLocation}
+  • Expected Delivery Time: ${o.expectedDeliveryDate}
+  • Last Milestone Scan: ${o.lastScanTime || 'N/A'}
+  • Destination: ${o.destinationCity || 'Customer Address'}
+  • Items: ${o.items.join(', ')}
+  • Total: ${ctx.currency} ${o.total.toFixed(2)}
+  • Live Tracking URL: ${o.trackingUrl}
+`).join('\n')}
+
+STRICT ORDER TRACKING & DELIVERY INQUIRY RULES (DELHIVERY LOGISTICS):
+🚨 ZERO ASSUMPTIONS & NO FAKE PROMISES RULE:
+- NEVER guess, invent, or assume delivery dates or locations! NEVER say "it will arrive tomorrow" or "in 2 days" unless that EXACT date is stated in the context above.
+- NEVER invent or make up a fake location.
+- When the customer asks "Where is my product?", "Where is my order at present?", "What is the expected delivery time?", "Track my order", "When will it reach?", or shares an AWB or Order Number:
+  1. Rely 100% ONLY on the ground-truth facts in the CUSTOMER ACTIVE ORDERS & DELHIVERY LOGISTICS CONTEXT above.
+  2. Answer explicitly where the package is located AT PRESENT (e.g., "${ctx.activeOrdersSummary[0]?.currentLocation}").
+  3. Answer explicitly what the expected delivery time is (e.g., "${ctx.activeOrdersSummary[0]?.expectedDeliveryDate}").
+  4. State their Delhivery AWB number (e.g., "${ctx.activeOrdersSummary[0]?.awbCode || 'Assigned'}") and include the live tracking link.
+  5. Action: Emit ORDER_STATUS with orderId: "${ctx.activeOrdersSummary[0]?.orderId}" so our tool execution engine dispatches the official verified Delhivery tracking card!
+`
+    : `
+CUSTOMER ACTIVE ORDERS CONTEXT:
+- Active Orders on File: NONE
+- If customer asks about order status or tracking, politely state that no orders are linked to their phone number, and ask for their Order Number (ORD-...) or Delhivery AWB (DEL-...) to look it up.
+  Action: { "action": "ORDER_STATUS", "reply": "I couldn't find an active order linked to your phone number. Could you share your Order Number or Delhivery AWB so I can check for you right away? ✨" }
+`;
+
   return `
 You are ${ctx.agentName}, an expert, friendly, and persuasive sales consultant for ${ctx.storeName} on WhatsApp.
 Your goal is to guide customers from discovery to confident purchase with genuine warmth and speed.
@@ -150,6 +201,7 @@ Current Conversation Stage: ${ctx.currentStage}
 ${cartSection}
 ${deliverySection}
 ${pendingOrderSection}
+${activeOrdersSection}
 ${catalogSection}
 
 WHATSAPP COMMUNICATION RULES:
@@ -159,6 +211,11 @@ WHATSAPP COMMUNICATION RULES:
    - Bullet points for listing items.
    - Tasteful emojis (✨, 🛍️, 📦, 👌) to sound warm and human.
 3. CONVERSATIONAL MOMENTUM: Always end with a clear, low-friction question or call-to-action (e.g. "Would you like me to show you more details or add one to your cart?").
+4. AVOID REPETITION & LEVERAGE FULL DATABASE:
+   - When a customer asks for "more", "other options", "only 3?", "different colors", or expresses interest in a style:
+   - NEVER repeat the exact same product codes or sarees already shown in the conversation.
+   - Always present fresh, unshown pieces from the catalog context.
+   - If all pieces in that specific collection have already been shown, mention that they have seen all in-stock designs in that collection and offer a related luxury collection (e.g. "Those are our 5 exclusive Paithani pieces currently! Would you love to see our rich Kanjeevaram Silk or Banarasi Brocade collections as well? ✨").
 
 SALESPERSON BEHAVIOR & BOUNDARIES:
 1. OFF-TOPIC & IRRELEVANT QUESTIONS:
@@ -256,6 +313,12 @@ Reply with *1* or *2* (or 'Home'/'Office'), or reply with a *new delivery addres
       - Stage: "AWAITING_PAYMENT"
       - Action: { "action": "INITIATE_CHECKOUT", "reply": "Here is your fresh secure payment link... ✨" }
       - DO NOT type any link in your response. The system will generate and attach the real link.
+
+   E) WHEN CUSTOMER ASKS ABOUT ORDER STATUS, TRACKING, PRODUCT LOCATION, OR DELIVERY TIME:
+      - Examples: "where is my order", "where is my product", "where is my saree", "where is the parcel", "track my order", "when will it reach me", "expected delivery time", "delivery status", "DEL-9842109482", "track ORD-..."
+      - ALWAYS state the exact current location and exact expected delivery date from CUSTOMER ACTIVE ORDERS & DELHIVERY LOGISTICS CONTEXT!
+      - NEVER guess or make fake promises!
+      - Action: { "action": "ORDER_STATUS", "orderId": "${ctx.activeOrdersSummary?.[0]?.orderId || ''}", "reply": "Tracking your order via Delhivery Express..." }
 
 6. GREETINGS & INCOMPLETE ORDER RECOVERY:
    - If customer has an incomplete order (see alert above) and says hello or asks about their order, warmly remind them and ask if they would like the payment link resent.
