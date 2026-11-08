@@ -114,6 +114,7 @@ const OrderStatusAction = z.object({
   action: z.literal('ORDER_STATUS'),
   reply: z.string().max(1000).default(''),
   orderId: z.string().optional(),
+  query: z.string().optional(),
 });
 
 const CancelOrderAction = z.object({

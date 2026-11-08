@@ -12,6 +12,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev --concurrency=20",
     "start:all": "bash scripts/start-all.sh",
+    "stop:all": "bash scripts/stop-all.sh",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
