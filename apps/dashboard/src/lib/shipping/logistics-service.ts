@@ -1,12 +1,19 @@
 // ╔═══════════════════════════════════════════════════════════════╗
-// ║  Logistics & Delivery Partner Service — DTDC & Delhivery     ║
-// ║  Handles AWB generation, consignment registration,           ║
-// ║  Code 128 Barcode & QR Code SVG rendering, and tracking.     ║
+// ║  Logistics & Delivery Partner Service — Delhivery Express     ║
+// ║  Handles Delhivery Virtual AWB, Sandbox Consignment,         ║
+// ║  Code 128 Barcode & QR Code SVG rendering, and Tracking.     ║
+// ║  (DTDC deactivated/disabled for testing phase)               ║
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import QRCode from 'qrcode';
+import {
+  generateDelhiveryAwb,
+  computeDelhiveryMilestones,
+  type CourierPartner as SharedCourierPartner,
+  type DelhiveryMilestone,
+} from '@wcos/types';
 
-export type CourierPartner = 'DELHIVERY' | 'DTDC';
+export type CourierPartner = 'DELHIVERY';
 
 export interface ConsignmentItem {
   productName: string;
@@ -28,7 +35,7 @@ export interface ConsignmentCreationInput {
     pincode?: string;
     landmark?: string;
   };
-  courierPartner: CourierPartner;
+  courierPartner?: 'DELHIVERY' | 'DTDC' | string;
   items: ConsignmentItem[];
   totalAmount: number;
   paymentMethod: string;
@@ -36,18 +43,10 @@ export interface ConsignmentCreationInput {
   staffName?: string;
 }
 
-export interface TrackingMilestone {
-  status: string;
-  label: string;
-  location: string;
-  description: string;
-  timestamp: string;
-  completed: boolean;
-  current: boolean;
-}
+export type TrackingMilestone = DelhiveryMilestone;
 
 export interface ConsignmentResult {
-  courierPartner: CourierPartner;
+  courierPartner: 'DELHIVERY';
   courierName: string;
   awbCode: string;
   trackingUrl: string;
@@ -57,6 +56,7 @@ export interface ConsignmentResult {
   barcodeSvg: string;
   qrCodeSvg: string;
   trackingEvents: TrackingMilestone[];
+  isSandbox: boolean;
 }
 
 // ─── Code 128 Barcode Generator (Pure SVG) ──────────────────────
@@ -142,121 +142,46 @@ export async function generateQrCodeSvg(url: string, size = 120): Promise<string
   }
 }
 
-// ─── AWB Generator (DTDC & Delhivery) ───────────────────────────
+// ─── AWB Generator (Delhivery Virtual Tracking ID) ───────────────
 
-export function generateAwbNumber(courier: CourierPartner, seedString: string): string {
-  // Deterministic but realistic courier AWB numbers
-  let hash = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    hash = (hash << 5) - hash + seedString.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
-  const timeSlice = Date.now().toString().slice(-4);
-
-  if (courier === 'DELHIVERY') {
-    // Delhivery AWB format: 10-12 digits e.g. DEL-9281749102
-    const numPart = ((positiveHash % 9000000) + 1000000).toString() + timeSlice;
-    return `DEL-${numPart.slice(0, 10)}`;
-  } else {
-    // DTDC AWB format: Prefix letter + 8-9 digits e.g. DTDC-D78291048
-    const prefixLetters = ['B', 'D', 'K', 'M', 'V', 'Z'];
-    const letter = prefixLetters[positiveHash % prefixLetters.length];
-    const numPart = ((positiveHash % 900000) + 100000).toString() + timeSlice;
-    return `DTDC-${letter}${numPart.slice(0, 8)}`;
-  }
+export function generateAwbNumber(
+  _courier?: any,
+  seedString?: string
+): string {
+  // DTDC disabled: Always use Delhivery Virtual Tracking ID
+  return generateDelhiveryAwb(seedString);
 }
 
 // ─── Tracking Milestones Generator ──────────────────────────────
 
 export function generateMilestones(
-  courier: CourierPartner,
-  awbCode: string,
+  _courier?: any,
+  awbCode: string = '',
   city: string = 'Bengaluru',
   dispatchedDate: Date = new Date()
 ): TrackingMilestone[] {
-  const courierName = courier === 'DELHIVERY' ? 'Delhivery Express Surface' : 'DTDC Priority Air Cargo';
-  const dispatchIso = dispatchedDate.toISOString();
-
-  // Next steps scheduled
-  const inTransitDate = new Date(dispatchedDate.getTime() + 14 * 60 * 60 * 1000).toISOString();
-  const destHubDate = new Date(dispatchedDate.getTime() + 36 * 60 * 60 * 1000).toISOString();
-  const outForDeliveryDate = new Date(dispatchedDate.getTime() + 54 * 60 * 60 * 1000).toISOString();
-  const deliveryDate = new Date(dispatchedDate.getTime() + 60 * 60 * 1000).toISOString();
-
-  return [
-    {
-      status: 'MANIFEST_CREATED',
-      label: 'Order Packed & Manifested',
-      location: 'Aura Luxe Fulfillment Hub, Bengaluru',
-      description: `Shipping label and tax invoice generated. Consignment registered with ${courierName}. AWB: ${awbCode}`,
-      timestamp: dispatchIso,
-      completed: true,
-      current: false,
-    },
-    {
-      status: 'PICKED_UP',
-      label: 'Handed Over to Courier',
-      location: 'Aura Luxe Hub, Indiranagar',
-      description: `Package picked up by ${courier === 'DELHIVERY' ? 'Delhivery' : 'DTDC'} dispatch representative. Security bar-seal verified.`,
-      timestamp: dispatchIso,
-      completed: true,
-      current: true,
-    },
-    {
-      status: 'IN_TRANSIT',
-      label: 'In Transit',
-      location: 'Bengaluru Logistics Sorting Gateway',
-      description: `Shipment bagged and dispatched to ${city} distribution hub via priority cargo route.`,
-      timestamp: inTransitDate,
-      completed: false,
-      current: false,
-    },
-    {
-      status: 'DESTINATION_HUB',
-      label: 'Arrived at Destination Hub',
-      location: `${city} City Delivery Center`,
-      description: `Consignment received at sorting facility, undergoing final route scan.`,
-      timestamp: destHubDate,
-      completed: false,
-      current: false,
-    },
-    {
-      status: 'OUT_FOR_DELIVERY',
-      label: 'Out for Delivery',
-      location: `${city} Local Delivery Station`,
-      description: `Courier partner delivery executive assigned with OTP verification delivery protocol.`,
-      timestamp: outForDeliveryDate,
-      completed: false,
-      current: false,
-    },
-    {
-      status: 'DELIVERED',
-      label: 'Delivered',
-      location: `Delivered to Customer Doorstep`,
-      description: `Package successfully received and acknowledged by recipient.`,
-      timestamp: deliveryDate,
-      completed: false,
-      current: false,
-    },
-  ];
+  // Compute realistic chronological milestones for Delhivery Express
+  const result = computeDelhiveryMilestones({
+    awbCode,
+    city,
+    dispatchedDate,
+    orderStatus: 'SHIPPED',
+    storeName: 'Aura Luxe Fulfillment Hub',
+  });
+  return result.milestones;
 }
 
-// ─── Register Consignment (Sandbox & Live Carrier Ready) ─────────
+// ─── Register Consignment (Delhivery Sandbox & Live Ready) ───────
 
 export async function createConsignment(input: ConsignmentCreationInput): Promise<ConsignmentResult> {
-  const courier = input.courierPartner || 'DELHIVERY';
-  const courierName =
-    courier === 'DELHIVERY'
-      ? 'Delhivery Express'
-      : 'DTDC Express Priority';
+  // DTDC is disabled for testing phase. Always enforce Delhivery Express.
+  const courier: CourierPartner = 'DELHIVERY';
+  const courierName = 'Delhivery Express';
 
   const seed = `${input.orderNumber}-${input.customerPhone}-${Date.now()}`;
-  const awbCode = generateAwbNumber(courier, seed);
+  const awbCode = generateDelhiveryAwb(seed);
   const now = new Date();
 
-  // Expected Delivery: 3 days from now
-  const estDelivery = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
   const city = input.deliveryAddress?.city || 'Bengaluru';
 
   // Base URL for storefront customer tracking
@@ -267,16 +192,19 @@ export async function createConsignment(input: ConsignmentCreationInput): Promis
 
   const slug = input.storeSlug || 'aura';
   const trackingUrl = `${storefrontBase}/${slug}/track?awb=${awbCode}`;
-
-  const courierPortalUrl =
-    courier === 'DELHIVERY'
-      ? `https://www.delhivery.com/track/package/${awbCode.replace('DEL-', '')}`
-      : `https://www.dtdc.in/tracking/shipment-tracking.asp?awb=${awbCode}`;
+  const courierPortalUrl = `https://www.delhivery.com/track/package/${awbCode.replace('DEL-', '')}`;
 
   // Generate barcodes and QR codes
   const barcodeSvg = generateBarcodeSvg(awbCode, 44);
   const qrCodeSvg = await generateQrCodeSvg(trackingUrl, 130);
-  const trackingEvents = generateMilestones(courier, awbCode, city, now);
+
+  const calc = computeDelhiveryMilestones({
+    awbCode,
+    city,
+    dispatchedDate: now,
+    orderStatus: 'SHIPPED',
+    storeName: 'Aura Luxe Fulfillment Hub',
+  });
 
   return {
     courierPartner: courier,
@@ -285,14 +213,10 @@ export async function createConsignment(input: ConsignmentCreationInput): Promis
     trackingUrl,
     courierPortalUrl,
     dispatchedAt: now.toISOString(),
-    estimatedDeliveryDate: estDelivery.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }),
+    estimatedDeliveryDate: calc.expectedDeliveryDate,
     barcodeSvg,
     qrCodeSvg,
-    trackingEvents,
+    trackingEvents: calc.milestones,
+    isSandbox: true,
   };
 }
-
