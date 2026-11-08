@@ -261,7 +261,27 @@ export function createInboundMessageWorker(): Worker<InboundMessageJobData> {
         const instanceName = ctx.tenant.whatsappInstanceName || 'sales-bot';
 
         // Send text first to guarantee fast, reliable delivery to customer
-        await evolutionClient.sendText(instanceName, customerPhone, finalReply);
+        let sentResult: any = null;
+        try {
+          sentResult = await evolutionClient.sendText(instanceName, customerPhone, finalReply);
+        } catch (dispatchErr: any) {
+          console.warn(`[InboundWorker] Initial dispatch to ${customerPhone} failed (${dispatchErr?.message}). Refreshing WhatsApp instance and retrying...`);
+          await evolutionClient.restartInstance(instanceName).catch(() => {});
+          await new Promise((r) => setTimeout(r, 2000));
+          sentResult = await evolutionClient.sendText(instanceName, customerPhone, finalReply);
+        }
+
+        const sentMsgId = sentResult?.key?.id;
+        if (sentMsgId) {
+          await prisma.message.updateMany({
+            where: {
+              conversationId: ctx.conversation.id,
+              role: 'assistant',
+              whatsappMessageId: null,
+            },
+            data: { whatsappMessageId: sentMsgId },
+          });
+        }
 
         // If product image is available, dispatch as media attachment
         if (toolResult.mediaUrl) {

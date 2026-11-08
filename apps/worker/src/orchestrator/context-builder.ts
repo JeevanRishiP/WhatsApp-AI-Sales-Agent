@@ -123,40 +123,112 @@ export async function buildConversationContext(
   const metadata = (conversation.metadata as Record<string, any>) || {};
   const cart: StoredCart = metadata['cart'] || { items: [], subtotal: 0 };
 
-  // 6. Pre-fetch relevant catalog products if message contains inquiry keywords
+  // 6. Pre-fetch relevant catalog products with multi-turn awareness and repetition prevention
   let catalogContext = '';
-  if (currentMessageText && currentMessageText.length > 2) {
-    const searchTerms = currentMessageText
-      .replace(/[^\w\s]/gi, '')
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-      .slice(0, 3);
 
-    if (searchTerms.length > 0) {
-      const matchedProducts = await prisma.product.findMany({
-        where: {
-          tenantId,
-          status: 'ACTIVE',
-          OR: searchTerms.map((term) => ({
-            OR: [
-              { name: { contains: term, mode: 'insensitive' } },
-              { category: { contains: term, mode: 'insensitive' } },
-              { tags: { has: term.toLowerCase() } },
-            ],
-          })),
-        },
-        take: 4,
-      });
-
-      if (matchedProducts.length > 0) {
-        catalogContext = matchedProducts
-          .map(
-            (p) =>
-              `- [Code: ${p.code}] *${p.name}* | Price: ₹${Number(p.salePrice || p.price)} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'OUT OF STOCK'}\n  ${p.description || ''}`
-          )
-          .join('\n');
+  // 6A. Track product codes already shown to customer in recent messages
+  const shownProductCodes = new Set<string>();
+  const productCodePattern = /\b([A-Z]{3}-[A-Z0-9]{3}-\d{2})\b/g;
+  for (const m of recentMessages) {
+    const matches = m.content.match(productCodePattern);
+    if (matches) {
+      for (const code of matches) {
+        shownProductCodes.add(code.toUpperCase());
       }
     }
+  }
+
+  // 6B. Extract meaningful keywords (filtering out stopwords including generic terms like "saree")
+  const STOPWORDS = new Set([
+    'i', 'me', 'my', 'we', 'our', 'you', 'your', 'want', 'to', 'see', 'show', 'give', 'tell', 'need', 'looking', 'look',
+    'some', 'more', 'are', 'there', 'any', 'please', 'can', 'in', 'the', 'only', 'what', 'have', 'all', 'and', 'for',
+    'with', 'of', 'a', 'an', 'is', 'it', 'this', 'that', 'these', 'those', 'kodu', 'kalsu', 'tori', 'bhejo', 'dikhao',
+    'aur', 'chahiye', 'beku', 'hai', 'ho', 'do', 'options', 'collection', 'collections', 'saree', 'sarees'
+  ]);
+
+  const rawWords = (currentMessageText || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+
+  let meaningfulKeywords = rawWords.filter((w) => !STOPWORDS.has(w));
+
+  // If current message has no specific keywords (e.g. "Only 3", "show more", "any other"),
+  // inspect the previous customer message in the conversation to retain intent
+  if (meaningfulKeywords.length === 0) {
+    const prevCustomerMsgs = recentMessages.filter((m) => m.role === 'customer');
+    if (prevCustomerMsgs.length >= 2) {
+      const priorMsg = prevCustomerMsgs[prevCustomerMsgs.length - 2]?.content || '';
+      const priorWords = priorMsg
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 3 && !STOPWORDS.has(w));
+      if (priorWords.length > 0) {
+        meaningfulKeywords = priorWords;
+      }
+    }
+  }
+
+  // 6C. Query matching products across the full database
+  const orConditions: any[] = [];
+  for (const kw of meaningfulKeywords) {
+    orConditions.push(
+      { name: { contains: kw, mode: 'insensitive' } },
+      { subcategory: { contains: kw, mode: 'insensitive' } },
+      { description: { contains: kw, mode: 'insensitive' } },
+      { searchText: { contains: kw, mode: 'insensitive' } },
+      { tags: { has: kw } }
+    );
+  }
+
+  const [matchedProducts, availableSubcategories] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        tenantId,
+        status: 'ACTIVE',
+        ...(orConditions.length > 0 ? { OR: orConditions } : {}),
+      },
+      take: 20, // generous window so all items in collection (e.g. all 5 Paithani sarees) are available
+      orderBy: { code: 'asc' },
+    }),
+    prisma.product.groupBy({
+      by: ['subcategory'],
+      where: { tenantId, status: 'ACTIVE' },
+      _count: { code: true },
+      _min: { price: true },
+      _max: { price: true },
+    }),
+  ]);
+
+  if (matchedProducts.length > 0) {
+    const unshown = matchedProducts.filter((p) => !shownProductCodes.has(p.code.toUpperCase()));
+    const alreadyShown = matchedProducts.filter((p) => shownProductCodes.has(p.code.toUpperCase()));
+
+    catalogContext += `SPECIFIC MATCHING PRODUCTS IN STOCK (${matchedProducts.length} items found):\n`;
+    if (shownProductCodes.size > 0 && unshown.length > 0) {
+      catalogContext += `⚠️ NOTE: Customer has already seen: [${Array.from(shownProductCodes).join(', ')}].\n`;
+      catalogContext += `👉 PRIORITIZE PRESENTING THESE FRESH UN-SHOWN PIECES FIRST:\n`;
+    }
+
+    const sortedProducts = [...unshown, ...alreadyShown];
+    catalogContext += sortedProducts
+      .map(
+        (p) =>
+          `- [Code: ${p.code}] *${p.name}* | Subcategory: ${p.subcategory || 'Sarees'} | Price: ₹${Number(p.salePrice || p.price)} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'OUT OF STOCK'}${shownProductCodes.has(p.code.toUpperCase()) ? ' (ALREADY SHOWN TO CUSTOMER)' : ' (NEW/UNSHOWN)'}\n  ${p.description || ''}`
+      )
+      .join('\n');
+  }
+
+  // Append full boutique collection directory so the agent uses the complete database
+  if (availableSubcategories.length > 0) {
+    const collectionsList = availableSubcategories
+      .filter((s) => s.subcategory)
+      .map((s) => `• *${s.subcategory}* (${s._count.code} designs, ₹${Number(s._min.price)} - ₹${Number(s._max.price)})`)
+      .join('\n');
+
+    catalogContext += `\n\nALL AVAILABLE STORE COLLECTIONS IN DATABASE:\n${collectionsList}\n(Full database contains 60+ handcrafted sarees across Banarasi, Kanjeevaram, Paithani, Linen, Organza, Patola, Chanderi, Jamdani, Tussar, and Maheshwari).`;
   }
 
   // 7. Check for previous order delivery details & customer memory address

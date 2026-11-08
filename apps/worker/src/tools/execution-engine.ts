@@ -1,5 +1,9 @@
 import { prisma } from '@wcos/db';
-import { type LLMAction } from '@wcos/types';
+import {
+  type LLMAction,
+  getDelhiveryLiveTrackingStatus,
+  formatDelhiveryWhatsAppTrackingReply,
+} from '@wcos/types';
 import {
   razorpayService,
   paymentGatewayRouter,
@@ -169,7 +173,11 @@ export class ToolExecutionEngine {
     switch (action.action) {
       case 'SEARCH_PRODUCTS': {
         const query = action.query.trim();
-        const stopWords = new Set(['for', 'the', 'and', 'with', 'any', 'can', 'you', 'show', 'some', 'looking', 'want', 'need', 'please']);
+        const stopWords = new Set([
+          'for', 'the', 'and', 'with', 'any', 'can', 'you', 'show', 'some', 'looking',
+          'want', 'need', 'please', 'more', 'other', 'options', 'saree', 'sarees',
+          'only', 'give', 'tell', 'all', 'in', 'of', 'me', 'i', 'collection', 'collections'
+        ]);
         const keywords = query
           .toLowerCase()
           .replace(/[^a-z0-9\s]/g, ' ')
@@ -199,25 +207,57 @@ export class ToolExecutionEngine {
             status: 'ACTIVE',
             OR: orConditions,
           },
-          take: 20,
+          take: 50,
+          orderBy: { code: 'asc' },
         });
 
         if (candidates.length === 0) {
           return {
-            reply: `I searched our catalog for "${query}", but couldn't find any direct matches right now. Would you like to check our popular categories?`,
+            reply: `I searched our catalog for "${query}", but couldn't find any direct matches right now. Would you like to check our popular collections like Banarasi Silk, Kanjeevaram, or Paithani sarees? ✨`,
           };
         }
 
-        // Rank candidates by number of matched keywords
+        // Check which products were already shown in recent assistant messages of this conversation
+        const recentMessages = await prisma.message.findMany({
+          where: {
+            conversationId: conversation.id,
+            role: 'assistant',
+          },
+          select: { content: true },
+          orderBy: { createdAt: 'desc' },
+          take: 12,
+        });
+
+        const previouslyShownCodes = new Set<string>();
+        const codePattern = /\b([A-Z]{3}-[A-Z0-9]{3}-\d{2})\b/g;
+        for (const m of recentMessages) {
+          const matched = m.content.match(codePattern);
+          if (matched) {
+            for (const c of matched) {
+              previouslyShownCodes.add(c.toUpperCase());
+            }
+          }
+        }
+
+        // Rank candidates: unshown products FIRST, then highest keyword relevance
         candidates.sort((a, b) => {
-          const aText = `${a.searchText || ''} ${a.name} ${(a.tags || []).join(' ')}`.toLowerCase();
-          const bText = `${b.searchText || ''} ${b.name} ${(b.tags || []).join(' ')}`.toLowerCase();
+          const aShown = previouslyShownCodes.has(a.code.toUpperCase()) ? 1 : 0;
+          const bShown = previouslyShownCodes.has(b.code.toUpperCase()) ? 1 : 0;
+          if (aShown !== bShown) {
+            return aShown - bShown; // unshown (0) before shown (1)
+          }
+          const aText = `${a.searchText || ''} ${a.name} ${a.subcategory || ''} ${(a.tags || []).join(' ')}`.toLowerCase();
+          const bText = `${b.searchText || ''} ${b.name} ${b.subcategory || ''} ${(b.tags || []).join(' ')}`.toLowerCase();
           const aScore = keywords.reduce((acc, k) => acc + (aText.includes(k) ? 1 : 0), 0);
           const bScore = keywords.reduce((acc, k) => acc + (bText.includes(k) ? 1 : 0), 0);
           return bScore - aScore;
         });
 
-        const products = candidates.slice(0, 3);
+        // Determine how many products to show: prefer unshown products if available
+        const unshownCandidates = candidates.filter((p) => !previouslyShownCodes.has(p.code.toUpperCase()));
+        const products = unshownCandidates.length > 0
+          ? unshownCandidates.slice(0, 3)
+          : candidates.slice(0, 3);
 
         const productListText = products
           .map(
@@ -228,7 +268,12 @@ export class ToolExecutionEngine {
           )
           .join('\n\n');
 
-        const intro = action.reply?.trim() || 'Here are our finest matching pieces for you: ✨';
+        let intro = action.reply?.trim() || 'Here are our finest matching pieces for you: ✨';
+        if (unshownCandidates.length > 0 && previouslyShownCodes.size > 0) {
+          intro = 'Here are more exquisite designs from our collection: ✨';
+        } else if (unshownCandidates.length === 0 && previouslyShownCodes.size > 0) {
+          intro = `You have seen all our current pieces in this specific collection! Here are our featured favorites: ✨`;
+        }
 
         return {
           reply: `${intro}\n\n${productListText}`,
@@ -887,8 +932,24 @@ export class ToolExecutionEngine {
             };
           }
 
+          // Check if customer recently completed/paid an order within the last 48 hours
+          const recentPaidOrder = await prisma.order.findFirst({
+            where: {
+              tenantId,
+              customerPhone: conversation.customerPhone,
+              status: { in: ['PAYMENT_CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          if (recentPaidOrder) {
+            return {
+              reply: `Your order *#${recentPaidOrder.orderNumber}* is already confirmed and being prepared for dispatch! ✨\n\nIf you'd like to place a new order or explore more of our collection, just let me know what you're looking for! 🛍️`,
+            };
+          }
+
           return {
-            reply: 'Your cart is empty. Please add items before checking out.',
+            reply: 'Your cart is currently empty. Would you like to explore our handcrafted collections to add items to your cart? ✨',
           };
         }
 
@@ -1196,23 +1257,83 @@ export class ToolExecutionEngine {
       }
 
       case 'ORDER_STATUS': {
-        const recentOrder = await prisma.order.findFirst({
-          where: {
-            tenantId,
-            customerPhone: conversation.customerPhone,
-          },
-          orderBy: { createdAt: 'desc' },
-          include: { items: true },
-        });
+        const queryCandidate = (action as any).query || (action as any).orderId || '';
+        const phoneClean = conversation.customerPhone.replace(/[^0-9]/g, '');
+        const phoneVariants = [
+          conversation.customerPhone,
+          `+${phoneClean}`,
+          phoneClean,
+          phoneClean.replace(/^91/, ''),
+          `+91${phoneClean.replace(/^91/, '')}`,
+          `91${phoneClean.replace(/^91/, '')}`,
+        ];
 
-        if (!recentOrder) {
+        let targetOrder: any = null;
+
+        // 1. Try to find by specific query / AWB / Order Number
+        if (queryCandidate) {
+          const trimmed = String(queryCandidate).trim();
+          const delMatch = trimmed.match(/\b(DEL-\d+)\b/i);
+          const ordMatch = trimmed.match(/\b(ORD-[A-Z0-9]+)\b/i);
+          const lookupKey = (delMatch && delMatch[1]) ? delMatch[1] : ((ordMatch && ordMatch[1]) ? ordMatch[1] : trimmed);
+
+          targetOrder = await prisma.order.findFirst({
+            where: {
+              tenantId,
+              OR: [
+                { id: lookupKey && lookupKey.length === 36 ? lookupKey : undefined },
+                { orderNumber: { equals: lookupKey, mode: 'insensitive' } },
+                { awbCode: { equals: lookupKey, mode: 'insensitive' } },
+                { trackingNumber: { equals: lookupKey, mode: 'insensitive' } },
+              ],
+            },
+            include: { items: true, tenant: true },
+          });
+        }
+
+        // 2. If not found by query, find customer's most recent active or placed order
+        if (!targetOrder) {
+          targetOrder = await prisma.order.findFirst({
+            where: {
+              tenantId,
+              customerPhone: { in: phoneVariants },
+              status: { in: ['SHIPPED', 'PROCESSING', 'PAYMENT_CONFIRMED', 'DELIVERED', 'PENDING_PAYMENT'] },
+            },
+            orderBy: { createdAt: 'desc' },
+            include: { items: true, tenant: true },
+          });
+        }
+
+        // 3. Fallback to any recent order
+        if (!targetOrder) {
+          targetOrder = await prisma.order.findFirst({
+            where: {
+              tenantId,
+              customerPhone: { in: phoneVariants },
+            },
+            orderBy: { createdAt: 'desc' },
+            include: { items: true, tenant: true },
+          });
+        }
+
+        if (!targetOrder) {
           return {
-            reply: "I couldn't find any recent orders associated with your phone number. Would you like to place a new order?",
+            reply:
+              "I couldn't find any active orders associated with your phone number. 📦\n\n" +
+              "If you already placed an order with us, please share your *Order Number* (e.g. `ORD-MW7UGM7G`) or *Delhivery AWB* (e.g. `DEL-7759334794`), and I will track it for you right away! ✨",
           };
         }
 
+        // Get unified, real-time ground truth from Delhivery tracking engine
+        const trackingInfo = getDelhiveryLiveTrackingStatus(
+          targetOrder,
+          targetOrder.tenant?.slug || 'aura'
+        );
+
+        const reply = formatDelhiveryWhatsAppTrackingReply(trackingInfo);
+
         return {
-          reply: `📦 *Order #${recentOrder.orderNumber}*\nStatus: *${recentOrder.status}*\nTotal: *₹${Number(recentOrder.total).toFixed(2)}*\nItems: ${recentOrder.items.length}\nDate: ${recentOrder.createdAt.toLocaleDateString()}`,
+          reply,
         };
       }
 

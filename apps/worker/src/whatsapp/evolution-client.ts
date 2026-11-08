@@ -38,6 +38,18 @@ export class EvolutionClient {
   }
 
   /**
+   * Restarts the WhatsApp Baileys session for an instance to restore socket health.
+   */
+  async restartInstance(instanceName: string): Promise<any> {
+    try {
+      return await this.request(`/instance/restart/${instanceName}`, {});
+    } catch (err: any) {
+      console.warn(`[EvolutionClient] Could not restart instance ${instanceName}: ${err?.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Sends a plain text WhatsApp message.
    */
   async sendText(instanceName: string, toPhone: string, text: string): Promise<any> {

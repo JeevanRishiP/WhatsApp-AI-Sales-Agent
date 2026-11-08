@@ -11,6 +11,7 @@ import { CartService } from '../cart/cart-service.js';
 import { ToolExecutionEngine } from '../tools/execution-engine.js';
 import { type StoredCart, type CartItemData } from '../orchestrator/context-builder.js';
 import { normalizePaymentUrl } from '@wcos/payments';
+import { getDelhiveryLiveTrackingStatus } from '@wcos/types';
 
 export async function processInboundMessage(job: Job<InboundMessageJobData>): Promise<void> {
   const { tenantId, message } = job.data;
@@ -246,6 +247,39 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
     const savedAddress = defaultSaved || (memAttribs['savedAddress'] as Record<string, any>) || null;
     const convoMeta = (conversation.metadata as Record<string, any>) || {};
 
+    // Query active/recent orders to feed factual Delhivery tracking context to AI
+    const recentCustomerOrders = await prisma.order.findMany({
+      where: {
+        tenantId,
+        customerPhone: { in: phoneVariants },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      include: { items: true, tenant: true },
+    });
+
+    const activeOrdersSummary = recentCustomerOrders
+      .filter((o) => ['SHIPPED', 'PROCESSING', 'PAYMENT_CONFIRMED', 'DELIVERED', 'PENDING_PAYMENT'].includes(o.status))
+      .map((o) => {
+        const tracking = getDelhiveryLiveTrackingStatus(o, o.tenant?.slug || 'aura');
+        return {
+          orderId: o.id,
+          orderNumber: o.orderNumber,
+          status: o.status,
+          courierPartner: 'Delhivery Express',
+          awbCode: tracking.awbCode,
+          currentLocation: tracking.currentLocation,
+          currentStatusLabel: tracking.currentStatusLabel,
+          expectedDeliveryDate: tracking.expectedDeliveryDate,
+          lastScanTime: tracking.lastScanTime,
+          items: tracking.items.map((it) => it.name),
+          total: Number(o.total),
+          destinationCity: tracking.destination.city,
+          trackingUrl: tracking.trackingUrl,
+          isDelivered: tracking.isDelivered,
+        };
+      });
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DETERMINISTIC INTENT DISPATCH (Buttons, Address Confirmation, Payment Link Requests)
     // ═══════════════════════════════════════════════════════════════════════════
@@ -429,6 +463,57 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
         }
       }
     }
+
+    // ─── Deterministic Tracking Dispatch (Delhivery Live Status & Exact Delivery Date) ──
+    const isTrackingQuery =
+      /\b(where\s*(is|are)\s*(my|the)?\s*(order|product|item|saree|parcel|package|delivery))\b/i.test(userText) ||
+      /\b(track|tracking|awb|delhivery|status\s*of\s*order|order\s*status)\b/i.test(userText) ||
+      /\b(when\s*will\s*(it|my\s*order|my\s*product|my\s*saree|my\s*parcel)\s*(come|arrive|reach|deliver))\b/i.test(userText) ||
+      /\b(expected\s*delivery|delivery\s*time|delivery\s*date|expected\s*time|at\s*present)\b/i.test(userText) ||
+      /\b(DEL-\d+|ORD-[A-Z0-9]+)\b/i.test(userText);
+
+    if (isTrackingQuery) {
+      const storedCartForTrack: StoredCart = {
+        items: cart.items.map((i): CartItemData => ({
+          productId: i.productId,
+          productCode: i.productCode,
+          name: i.productName,
+          quantity: i.quantity,
+          price: i.priceAtAdd,
+          imageUrl: i.imageUrl,
+        })),
+        subtotal: cart.subtotal,
+      };
+      const conversationCtxForTrack = {
+        ...conversation,
+        metadata: {
+          ...convoMeta,
+          customerName: message.customerName,
+          customerPlatform: convoMeta['customerPlatform'] || 'web',
+        },
+      };
+
+      const trackAction = {
+        action: 'ORDER_STATUS',
+        orderId: activeOrdersSummary[0]?.orderId,
+        query: userText,
+      };
+
+      try {
+        const execResult = await ToolExecutionEngine.execute(
+          tenantId,
+          conversationCtxForTrack,
+          storedCartForTrack,
+          trackAction as any
+        );
+        if (execResult.reply) {
+          await saveAndSend(tenantId, conversation.id, customerPhone, execResult.reply, 'ORDER_STATUS');
+          return;
+        }
+      } catch (trackErr: any) {
+        console.error('[InboundProcessor] Deterministic tracking dispatch error:', trackErr.message);
+      }
+    }
     // ─── End Deterministic Dispatch ──────────────────────────────────────────────────────────
 
     // 10. Call AI Gateway
@@ -447,6 +532,7 @@ export async function processInboundMessage(job: Job<InboundMessageJobData>): Pr
         addressConfirmed: convoMeta['addressConfirmed'] === true,
         currentDeliveryAddress: convoMeta['deliveryAddress'] || convoMeta['pendingDeliveryAddress'] || undefined,
         pendingOrderSummary,
+        activeOrdersSummary: activeOrdersSummary.length > 0 ? activeOrdersSummary : undefined,
         cartSummary: cart.itemCount > 0
           ? {
               itemsCount: cart.itemCount,
