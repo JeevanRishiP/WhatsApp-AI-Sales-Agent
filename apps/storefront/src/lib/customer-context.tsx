@@ -161,6 +161,15 @@ export function CustomerProvider({
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
+      let guestId = localStorage.getItem('wcos_guest_session_id');
+      if (!guestId) {
+        guestId =
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem('wcos_guest_session_id', guestId);
+      }
+      headers['x-guest-session-id'] = guestId;
     }
     return headers;
   }, [tenantSlug]);
