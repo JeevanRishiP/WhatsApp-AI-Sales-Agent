@@ -158,6 +158,7 @@ export async function createProduct(tenantId: string, input: CreateProductInput)
     data: {
       tenantId,
       code: input.code,
+      codeNormalized: input.code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(),
       name: input.name,
       description: input.description,
       category: input.category,

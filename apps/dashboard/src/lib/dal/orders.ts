@@ -152,16 +152,15 @@ export async function updateOrderStatus(
   note?: string,
   staffMeta?: { staffId?: string; staffName?: string; staffRole?: string; reason?: string }
 ): Promise<Order> {
-  // Get current order — verify ownership
   const order = await prisma.order.findFirst({
     where: { id: orderId, tenantId },
+    include: { items: true, reservation: true },
   });
 
   if (!order) {
     throw new Error('Order not found');
   }
 
-  // Validate state transition
   const allowed = VALID_TRANSITIONS[order.status];
   if (!allowed?.includes(newStatus)) {
     throw new Error(
@@ -173,7 +172,6 @@ export async function updateOrderStatus(
   const staffRole = (staffMeta?.staffRole as any) || 'STORE_MANAGER';
   const reason = staffMeta?.reason || note || `Status changed from ${order.status} to ${newStatus}`;
 
-  // Build status history entry
   const currentHistory = (order.statusHistory as any[]) || [];
   const newHistory = [
     ...currentHistory,
@@ -186,12 +184,67 @@ export async function updateOrderStatus(
     },
   ];
 
-  const updatedOrder = await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      status: newStatus,
-      statusHistory: newHistory as Prisma.InputJsonValue,
-    },
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    const cas = await tx.order.updateMany({
+      where: { id: orderId, tenantId, status: order.status },
+      data: {
+        status: newStatus,
+        statusHistory: newHistory as Prisma.InputJsonValue,
+      },
+    });
+    if (cas.count !== 1) {
+      throw new Error('Order status changed concurrently; please refresh and try again');
+    }
+
+    // Restore / release inventory cleanly upon cancellation
+    if (newStatus === 'CANCELLED') {
+      if (order.reservationId && order.reservation) {
+        const resReleased = await tx.inventoryReservation.updateMany({
+          where: { id: order.reservationId, status: 'ACTIVE' },
+          data: { status: 'RELEASED' },
+        });
+        if (resReleased.count === 1) {
+          const items = Array.isArray(order.reservation.items)
+            ? (order.reservation.items as Array<{ productId: string; quantity: number }>)
+            : [];
+          for (const it of items) {
+            if (it.productId && it.quantity > 0) {
+              await tx.$executeRaw`
+                UPDATE "Product"
+                SET reserved = GREATEST(0, reserved - ${it.quantity}), "updatedAt" = NOW()
+                WHERE id = ${it.productId}::uuid AND "tenantId" = ${tenantId}::uuid
+              `;
+            }
+          }
+        } else if (
+          order.reservation.status === 'COMMITTED' ||
+          order.status === 'PAYMENT_CONFIRMED' ||
+          order.status === 'PROCESSING'
+        ) {
+          for (const it of order.items) {
+            await tx.$executeRaw`
+              UPDATE "Product"
+              SET stock = stock + ${it.quantity},
+                  status = CASE WHEN status = 'OUT_OF_STOCK' THEN 'ACTIVE'::"ProductStatus" ELSE status END,
+                  "updatedAt" = NOW()
+              WHERE id = ${it.productId}::uuid AND "tenantId" = ${tenantId}::uuid
+            `;
+          }
+        }
+      } else if (order.status === 'PAYMENT_CONFIRMED' || order.status === 'PROCESSING') {
+        for (const it of order.items) {
+          await tx.$executeRaw`
+            UPDATE "Product"
+            SET stock = stock + ${it.quantity},
+                status = CASE WHEN status = 'OUT_OF_STOCK' THEN 'ACTIVE'::"ProductStatus" ELSE status END,
+                "updatedAt" = NOW()
+            WHERE id = ${it.productId}::uuid AND "tenantId" = ${tenantId}::uuid
+          `;
+        }
+      }
+    }
+
+    return tx.order.findUniqueOrThrow({ where: { id: orderId } });
   });
 
   // Record audit log
