@@ -1,0 +1,28 @@
+# Edge Reverse-Proxy Cell Router (Caddy v2)
+# Routes each tenant/cell domain to its isolated Pod services with automatic TLS.
+
+shop.tenant-cell-01.example.com {
+	reverse_proxy cell-01-storefront:3005
+}
+
+dashboard.tenant-cell-01.example.com {
+	reverse_proxy cell-01-dashboard:3001
+}
+
+api.tenant-cell-01.example.com {
+	reverse_proxy cell-01-api:3002
+}
+
+# VIP Isolated Cell-02
+shop.vip-brand.com {
+	reverse_proxy cell-vip-storefront:3005
+}
+
+dashboard.vip-brand.com {
+	reverse_proxy cell-vip-dashboard:3001
+}
+
+api.vip-brand.com {
+	reverse_proxy cell-vip-api:3002
+}
+

@@ -35,9 +35,9 @@ services:
       - DATABASE_CONNECTION_URI=postgresql://postgres:postgres@postgres:5432/evolution
       - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
 
-      # Redis for Evolution internal cache
+      # Redis for Evolution internal cache (isolated cache instance)
       - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://redis:6379/0
+      - CACHE_REDIS_URI=redis://redis-cache:6379/0
       - CACHE_REDIS_PREFIX_KEY=evolution
       - CACHE_LOCAL_ENABLED=false
 
@@ -70,10 +70,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      redis-cache:
+        condition: service_healthy
       postgres:
         condition: service_healthy
 
-  # ─── Redis (local dev only — prod uses Upstash) ───────────
+  # ─── Redis Queue (BullMQ + Locks: strict noeviction) ──────
   redis:
     container_name: wcos-redis
     image: redis:7-alpine
@@ -83,10 +85,31 @@ services:
     command: >
       redis-server
       --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    networks:
+      - wcos-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis Cache (OTP, Rate Limits, Carts, JTI Cache) ─────
+  redis-cache:
+    container_name: wcos-redis-cache
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: >
+      redis-server
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
     volumes:
-      - redis_data:/data
+      - redis_cache_data:/data
     networks:
       - wcos-network
     healthcheck:
@@ -119,6 +142,7 @@ services:
 volumes:
   evolution_data:
   redis_data:
+  redis_cache_data:
   postgres_data:
 
 networks:
