@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession } from '@/lib/auth';
 import { prisma } from '@wcos/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const session = await verifySession();
+  if (!session?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const session = await getSession();
-    if (!session?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const handoffs = await prisma.conversation.findMany({
       where: {

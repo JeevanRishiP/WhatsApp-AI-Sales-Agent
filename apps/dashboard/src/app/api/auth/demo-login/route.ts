@@ -6,25 +6,40 @@ const SESSION_COOKIE = 'wcos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.JWT_SECRET || 'wcos-dashboard-secret-change-in-production';
+  const secret = process.env.JWT_SECRET;
+  if (!secret || process.env.NODE_ENV === 'production') {
+    throw new Error('Demo login JWT signing is disabled outside explicit development mode.');
+  }
   return new TextEncoder().encode(secret);
 }
 
+function sanitizeRelativeRedirect(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
+    return '/';
+  }
+  return raw;
+}
+
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'development' || process.env.ENABLE_DEMO_LOGIN !== 'true') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
-  const tenantKey = searchParams.get('key') || 'sk_live_aura_8f92jkl2309x';
+  const tenantKey = searchParams.get('key');
+  if (!tenantKey) {
+    return NextResponse.redirect(new URL('/login?error=missing_key', request.url));
+  }
 
   try {
     const tenant = await verifyApiKey(tenantKey);
     if (!tenant) {
-      const errorUrl = new URL('/login?error=invalid_key', request.url);
-      return NextResponse.redirect(errorUrl);
+      return NextResponse.redirect(new URL('/login?error=invalid_key', request.url));
     }
 
-    // Find Owner staff record
     const { prisma } = await import('@wcos/db');
     const staff = await prisma.staffUser.findFirst({
-      where: { tenantId: tenant.id, role: 'OWNER' },
+      where: { tenantId: tenant.id, role: 'OWNER', status: 'ACTIVE' },
     });
 
     const token = await new SignJWT({
@@ -32,7 +47,7 @@ export async function GET(request: NextRequest) {
       tenantName: tenant.name,
       email: staff?.email || tenant.ownerEmail,
       staffId: staff?.id,
-      staffName: staff?.fullName || tenant.ownerName || 'Jeevan Rishi P',
+      staffName: staff?.fullName || tenant.ownerName || 'Owner',
       role: 'OWNER',
     })
       .setProtectedHeader({ alg: 'HS256' })
@@ -40,22 +55,21 @@ export async function GET(request: NextRequest) {
       .setExpirationTime(`${SESSION_MAX_AGE}s`)
       .sign(getSecretKey());
 
-    const redirectPath = searchParams.get('redirect') || '/';
+    const redirectPath = sanitizeRelativeRedirect(searchParams.get('redirect'));
     const redirectUrl = new URL(redirectPath, request.url);
     const response = NextResponse.redirect(redirectUrl);
 
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false,
       sameSite: 'lax',
       maxAge: SESSION_MAX_AGE,
       path: '/',
     });
 
     return response;
-  } catch (err: any) {
+  } catch (err) {
     console.error('[demo-login error]', err);
-    const errorUrl = new URL(`/login?error=auth_failed&msg=${encodeURIComponent(err.message || 'unknown')}`, request.url);
-    return NextResponse.redirect(errorUrl);
+    return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
   }
 }
