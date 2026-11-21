@@ -41,14 +41,14 @@ export default async function StoreLayout({ children, params }: StoreLayoutProps
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <p className="font-serif text-base text-neutral-900 mb-1">{tenant.name}</p>
-              <p>© 2026 {tenant.name}. Handcrafted Heritage & Silk Sarees.</p>
+              <p>© {new Date().getFullYear()} {tenant.name}. {tenant.businessCategory}.</p>
             </div>
             <div className="flex items-center gap-6 text-[11px] uppercase tracking-wider text-neutral-400">
               <span>Encrypted WhatsApp Ordering</span>
               <span>•</span>
               <span>Self-Service Delivery Portal</span>
               <span>•</span>
-              <span>White-Glove Saree Care</span>
+              <span>Concierge Support</span>
             </div>
           </div>
         </footer>

@@ -22,16 +22,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
 
   return (
     <div className="space-y-12">
-      {/* Editorial Hero Header for Aura Luxe Boutique */}
+      {/* Editorial Storefront Header */}
       <section className="text-center py-12 md:py-16 border-b border-neutral-200/60 max-w-3xl mx-auto">
         <p className="micro-caps text-neutral-400 mb-3 tracking-widest">
           {tenant.name} • {tenant.businessCategory}
         </p>
         <h1 className="text-4xl md:text-5xl font-serif font-light text-neutral-900 tracking-tight leading-tight">
-          Handcrafted Heritage & Pure Silk Sarees
+          {tenant.name} Catalog
         </h1>
         <p className="text-sm text-neutral-600 mt-4 font-normal max-w-xl mx-auto leading-relaxed">
-          Discover our curated collection of authentic Banarasi, Kanjeevaram, and Chanderi silks. Order online or consult Meera, your personal styling concierge, directly on WhatsApp.
+          Explore our curated {tenant.businessCategory.toLowerCase()} collection. Order securely online or consult {tenant.botName}, your personal store concierge, directly on WhatsApp.
         </p>
       </section>
 
