@@ -1,5 +1,6 @@
 import { prisma } from '@wcos/db';
 import { enqueueOutboundMessage } from '@wcos/queue';
+import { config } from '../config.js';
 
 export interface PaymentNotificationOptions {
   order: {
@@ -56,37 +57,39 @@ We received your payment of ${order.currency} ${Number(order.total).toFixed(2)} 
     where: { id: order.tenantId },
     select: { whatsappInstanceName: true },
   });
-  const instanceName = tenant?.whatsappInstanceName || 'wa_aura_luxe_01';
+  const instanceName = tenant?.whatsappInstanceName;
   const cleanPhone = order.customerPhone.replace(/[^0-9]/g, '');
 
   // 3. Guaranteed Direct HTTP Dispatch to Evolution API first (0-delay!)
   let directSuccess = false;
-  try {
-    const evolutionUrl = (process.env['EVOLUTION_API_URL'] || 'http://localhost:8080').replace(/\/$/, '');
-    const evolutionKey =
-      process.env['EVOLUTION_API_GLOBAL_KEY'] ||
-      process.env['EVOLUTION_API_KEY'] ||
-      '429683C4C97CA36CA8211152D4C54';
+  if (instanceName) {
+    try {
+      const evolutionUrl = config.EVOLUTION_API_URL.replace(/\/$/, '');
+      const evolutionKey = config.EVOLUTION_API_GLOBAL_KEY;
 
-    const resp = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: evolutionKey,
-      },
-      body: JSON.stringify({
-        number: cleanPhone,
-        text: confirmationText,
-        delay: 1000,
-        linkPreview: true,
-      }),
-    });
+      const resp = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: evolutionKey,
+        },
+        signal: AbortSignal.timeout(8000),
+        body: JSON.stringify({
+          number: cleanPhone,
+          text: confirmationText,
+          delay: 1000,
+          linkPreview: true,
+        }),
+      });
 
-    if (resp.ok) {
-      directSuccess = true;
+      if (resp.ok) {
+        directSuccess = true;
+      }
+    } catch (directErr) {
+      console.warn('[PaymentNotifications] Direct Evolution dispatch failed, falling back to BullMQ queue:', directErr);
     }
-  } catch (directErr) {
-    console.warn('[PaymentNotifications] Direct Evolution dispatch failed, falling back to BullMQ queue:', directErr);
+  } else {
+    console.warn(`[PaymentNotifications] Missing whatsappInstanceName for tenant ${order.tenantId}`);
   }
 
   // 4. Record to Message table so chat history and merchant dashboard are always updated
