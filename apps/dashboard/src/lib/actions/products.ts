@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getTenantId } from '@/lib/auth';
+import { getSession, hasRole } from '@/lib/auth';
 import {
   getProduct,
   createProduct,
@@ -23,6 +23,33 @@ import {
   type UpdateProductInput,
 } from '@/lib/dal/products';
 import { z } from 'zod';
+
+const MANAGE_ROLES = ['OWNER', 'STORE_MANAGER'] as const;
+const STOCK_ROLES = ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'] as const;
+
+function parseCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
 
 // ─── Validation Schemas ───────────────────────────────────────────
 
@@ -54,7 +81,11 @@ export async function createProductAction(
   _prev: ProductActionState,
   formData: FormData
 ): Promise<ProductActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions to create products' };
+  }
+  const tenantId = session.tenantId;
 
   const rawData = {
     code: formData.get('code'),
@@ -112,7 +143,11 @@ export async function updateProductAction(
   _prev: ProductActionState,
   formData: FormData
 ): Promise<ProductActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions to edit products' };
+  }
+  const tenantId = session.tenantId;
 
   const UpdateSchema = ProductFormSchema.partial().omit({ code: true });
 
@@ -162,7 +197,11 @@ export async function updateProductAction(
 // ─── Archive Product ──────────────────────────────────────────────
 
 export async function archiveProductAction(productId: string): Promise<ProductActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions to archive products' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     await archiveProduct(tenantId, productId);
@@ -180,7 +219,11 @@ export async function updateStockAction(
   productId: string,
   newStock: number
 ): Promise<ProductActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, STOCK_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions to update stock' };
+  }
+  const tenantId = session.tenantId;
 
   if (newStock < 0) {
     return { error: 'Stock cannot be negative' };
@@ -208,7 +251,11 @@ export interface BulkImportState {
 export async function bulkImportProductsAction(
   csvContent: string
 ): Promise<BulkImportState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions to import products' };
+  }
+  const tenantId = session.tenantId;
 
   if (!csvContent || csvContent.trim().length === 0) {
     return { error: 'CSV content is empty' };
@@ -219,7 +266,7 @@ export async function bulkImportProductsAction(
     return { error: 'CSV must contain a header row and at least one item row' };
   }
 
-  const header = lines[0].toLowerCase().split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+  const header = parseCsvLine(lines[0]!).map((h) => h.toLowerCase());
   const codeIdx = header.indexOf('code');
   const nameIdx = header.indexOf('name');
   const priceIdx = header.indexOf('price');
@@ -233,11 +280,11 @@ export async function bulkImportProductsAction(
 
   let imported = 0;
   for (let i = 1; i < lines.length; i++) {
-    const rawCells = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+    const rawCells = parseCsvLine(lines[i]!);
     const code = rawCells[codeIdx];
     const name = rawCells[nameIdx];
-    const price = parseFloat(rawCells[priceIdx]);
-    const stock = stockIdx !== -1 ? parseInt(rawCells[stockIdx], 10) || 0 : 0;
+    const price = parseFloat(rawCells[priceIdx] || '');
+    const stock = stockIdx !== -1 ? parseInt(rawCells[stockIdx] || '0', 10) || 0 : 0;
     const category = catIdx !== -1 ? rawCells[catIdx] : undefined;
     const description = descIdx !== -1 ? rawCells[descIdx] : undefined;
 
@@ -283,7 +330,11 @@ export async function updateProductImagesAction(
   imageUrls: string[],
   thumbnailUrl?: string | null
 ): Promise<PhotoActionResult> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { success: false, error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     const updated = await updateProductImages(tenantId, productId, imageUrls, thumbnailUrl);
@@ -306,7 +357,11 @@ export async function uploadProductImageAction(
   productId: string,
   formData: FormData
 ): Promise<PhotoActionResult> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { success: false, error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
   const file = formData.get('file') as File | null;
 
   if (!file || typeof file === 'string' || file.size === 0) {
@@ -371,7 +426,11 @@ export async function removeProductImageAction(
   productId: string,
   imageUrl: string
 ): Promise<PhotoActionResult> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { success: false, error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     const product = await getProduct(tenantId, productId);
@@ -412,7 +471,11 @@ export async function setPrimaryProductImageAction(
   productId: string,
   imageUrl: string
 ): Promise<PhotoActionResult> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, MANAGE_ROLES)) {
+    return { success: false, error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     const product = await getProduct(tenantId, productId);

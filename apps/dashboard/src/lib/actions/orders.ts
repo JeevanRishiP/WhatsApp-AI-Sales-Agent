@@ -8,7 +8,7 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId, getSession } from '@/lib/auth';
+import { getSession, hasRole } from '@/lib/auth';
 import {
   updateOrderStatus,
   updateTracking,
@@ -18,6 +18,14 @@ import {
 import { type CourierPartner } from '@/lib/shipping/logistics-service';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SENSITIVE_ORDER_STATUSES = new Set([
+  'PAYMENT_CONFIRMED',
+  'CANCELLED',
+  'REFUND_INITIATED',
+  'REFUNDED',
+]);
 
 export interface OrderActionState {
   error?: string;
@@ -47,6 +55,9 @@ export async function updateOrderStatusAction(
   formData: FormData
 ): Promise<OrderActionState> {
   const session = await getSession();
+  if (!UUID_REGEX.test(orderId)) {
+    return { error: 'Invalid order ID' };
+  }
 
   const parsed = StatusUpdateSchema.safeParse({
     status: formData.get('status'),
@@ -56,6 +67,14 @@ export async function updateOrderStatusAction(
 
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message || 'Invalid input' };
+  }
+
+  if (SENSITIVE_ORDER_STATUSES.has(parsed.data.status)) {
+    if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+      return { error: 'Access denied: Only Owner or Store Manager can confirm payments, cancel, or refund orders' };
+    }
+  } else if (!hasRole(session, ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'])) {
+    return { error: 'Access denied: Insufficient permissions to update order fulfillment status' };
   }
 
   try {
@@ -96,6 +115,12 @@ export async function updateTrackingAction(
   formData: FormData
 ): Promise<OrderActionState> {
   const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'])) {
+    return { error: 'Access denied: Insufficient permissions to update tracking' };
+  }
+  if (!UUID_REGEX.test(orderId)) {
+    return { error: 'Invalid order ID' };
+  }
 
   const parsed = TrackingSchema.safeParse({
     trackingNumber: formData.get('trackingNumber'),
@@ -173,16 +198,29 @@ export async function assignStaffAction(
   staffId: string
 ): Promise<OrderActionState> {
   const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'])) {
+    return { error: 'Access denied: Insufficient permissions to assign staff' };
+  }
+  if (!UUID_REGEX.test(orderId) || !UUID_REGEX.test(staffId)) {
+    return { error: 'Invalid order or staff identifier' };
+  }
 
   try {
-    const staff = await prisma.staffUser.findUnique({
-      where: { id: staffId },
+    // Strictly enforce tenant ownership of BOTH target staff user and order
+    const staff = await prisma.staffUser.findFirst({
+      where: { id: staffId, tenantId: session.tenantId, status: 'ACTIVE' },
     });
+    if (!staff) {
+      return { error: 'Staff member not found or inactive in your store' };
+    }
 
-    await prisma.order.update({
+    const orderResult = await prisma.order.updateMany({
       where: { id: orderId, tenantId: session.tenantId },
-      data: { assignedStaffId: staffId },
+      data: { assignedStaffId: staff.id },
     });
+    if (orderResult.count === 0) {
+      return { error: 'Order not found' };
+    }
 
     await prisma.dataRevisionLog.create({
       data: {
@@ -193,8 +231,8 @@ export async function assignStaffAction(
         staffId: session.staffId,
         staffName: session.staffName || 'Staff',
         staffRole: session.role,
-        reason: `Assigned order handling to ${staff?.fullName || staffId}`,
-        diffSummary: { assignedStaffId: { to: staffId } },
+        reason: `Assigned order handling to ${staff.fullName}`,
+        diffSummary: { assignedStaffId: { to: staff.id } },
       },
     });
   } catch (err: any) {
@@ -213,6 +251,12 @@ export async function generateBillAndAwbAction(
   courierPartner: CourierPartner = 'DELHIVERY'
 ): Promise<OrderActionState & { awbCode?: string; trackingUrl?: string }> {
   const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'])) {
+    return { error: 'Access denied: Insufficient permissions to dispatch orders' };
+  }
+  if (!UUID_REGEX.test(orderId)) {
+    return { error: 'Invalid order ID' };
+  }
 
   try {
     const { consignment } = await generateBillAndAwb(
@@ -246,16 +290,36 @@ export async function generateBillAndAwbAction(
 export async function simulateRazorpayPaymentAction(
   orderId: string
 ): Promise<OrderActionState> {
-  const tenantId = await getTenantId();
+  if (
+    process.env['NODE_ENV'] === 'production' ||
+    process.env['ENABLE_PAYMENT_SIMULATOR'] !== 'true'
+  ) {
+    return { error: 'Payment simulation is disabled in this environment' };
+  }
+
+  const session = await getSession();
+  if (session.role !== 'OWNER' && session.role !== 'STORE_MANAGER') {
+    return { error: 'Access denied: Insufficient permissions to confirm payment' };
+  }
+  const tenantId = session.tenantId;
 
   try {
+    const { prisma } = await import('@wcos/db');
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, tenantId },
+    });
+
+    if (!order) {
+      return { error: 'Order not found' };
+    }
+
     const apiUrl = (
       process.env['API_URL'] ||
       process.env['APP_BASE_URL'] ||
       'http://localhost:3002'
     ).replace(/\/+$/, '');
     try {
-      const res = await fetch(`${apiUrl}/payments/checkout/${orderId}/simulate`, {
+      const res = await fetch(`${apiUrl}/payments/checkout/${order.id}/simulate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method: 'upi' }),
@@ -267,16 +331,6 @@ export async function simulateRazorpayPaymentAction(
       }
     } catch {
       // Fallback to direct DB transaction if API server is not running
-    }
-
-    // 2. Direct atomic confirmation fallback via Prisma
-    const { prisma } = await import('@wcos/db');
-    const order = await prisma.order.findFirst({
-      where: { id: orderId, tenantId },
-    });
-
-    if (!order) {
-      return { error: 'Order not found' };
     }
 
     const paymentId = `pay_test_${Date.now().toString(36)}${Math.random().toString(36).substring(2, 6)}`;
