@@ -1,4 +1,5 @@
 import { type FastifyRequest, type FastifyReply } from 'fastify';
+import { prisma } from '@wcos/db';
 import { CustomerAuthService, type CustomerTokenPayload } from '../services/customer-auth-service.js';
 
 declare module 'fastify' {
@@ -7,29 +8,57 @@ declare module 'fastify' {
   }
 }
 
+function extractCustomerToken(request: FastifyRequest): string | undefined {
+  const authHeader = request.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  if (request.headers.cookie) {
+    const cookies = request.headers.cookie.split(';');
+    for (const cookie of cookies) {
+      const eqIdx = cookie.indexOf('=');
+      if (eqIdx === -1) continue;
+      const name = cookie.slice(0, eqIdx).trim();
+      const val = cookie.slice(eqIdx + 1).trim();
+      if (name === 'wcos_customer_token' && val) {
+        return decodeURIComponent(val);
+      }
+    }
+  }
+  return undefined;
+}
+
+async function verifyActiveCustomerSession(token: string): Promise<CustomerTokenPayload> {
+  const payload = await CustomerAuthService.verifySession(token);
+  const customer = await prisma.customer.findUnique({
+    where: { id: payload.customerId },
+    select: {
+      tenantId: true,
+      riskStatus: true,
+      tenant: { select: { status: true } },
+    },
+  });
+
+  if (
+    !customer ||
+    customer.tenantId !== payload.tenantId ||
+    customer.riskStatus === 'BLOCKED' ||
+    customer.tenant.status !== 'ACTIVE'
+  ) {
+    throw new Error('Customer session revoked or store inactive');
+  }
+
+  return payload;
+}
+
 /**
- * Middleware that requires a verified customer session (via Bearer token or Cookie).
+ * Middleware requiring a verified active customer session on an active tenant.
  */
 export async function requireCustomerAuth(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
-  let token: string | undefined;
-
-  const authHeader = request.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.slice(7).trim();
-  } else if (request.headers.cookie) {
-    const cookies = request.headers.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, val] = cookie.trim().split('=');
-      if (name === 'wcos_customer_token' && val) {
-        token = decodeURIComponent(val);
-        break;
-      }
-    }
-  }
-
+  const token = extractCustomerToken(request);
   if (!token) {
     reply.status(401).send({
       statusCode: 401,
@@ -40,48 +69,30 @@ export async function requireCustomerAuth(
   }
 
   try {
-    const payload = await CustomerAuthService.verifySession(token);
-    request.customerSession = payload;
-  } catch (err: any) {
+    request.customerSession = await verifyActiveCustomerSession(token);
+  } catch {
     reply.status(401).send({
       statusCode: 401,
       error: 'Unauthorized',
-      message: 'Invalid or expired session. Please sign in again.',
+      message: 'Invalid, expired, or restricted session. Please sign in again.',
     });
   }
 }
 
 /**
- * Optional customer authentication: populates request.customerSession if token is valid,
- * but allows the request to continue as guest if absent.
+ * Optional customer authentication: populates request.customerSession if token is valid & active,
+ * otherwise allows request to proceed as guest.
  */
 export async function optionalCustomerAuth(
   request: FastifyRequest,
   _reply: FastifyReply
 ): Promise<void> {
-  let token: string | undefined;
+  const token = extractCustomerToken(request);
+  if (!token) return;
 
-  const authHeader = request.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.slice(7).trim();
-  } else if (request.headers.cookie) {
-    const cookies = request.headers.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, val] = cookie.trim().split('=');
-      if (name === 'wcos_customer_token' && val) {
-        token = decodeURIComponent(val);
-        break;
-      }
-    }
-  }
-
-  if (token) {
-    try {
-      const payload = await CustomerAuthService.verifySession(token);
-      request.customerSession = payload;
-    } catch {
-      // Ignore invalid guest token
-    }
+  try {
+    request.customerSession = await verifyActiveCustomerSession(token);
+  } catch {
+    // Ignore invalid guest token
   }
 }
-
