@@ -1,14 +1,20 @@
 import { type Job } from 'bullmq';
 import { prisma } from '@wcos/db';
-import { type FollowUpJobData, enqueueOutboundMessage, scheduleFollowUp } from '@wcos/queue';
-import { CartService } from '../cart/cart-service.js';
+import {
+  type FollowUpJobData,
+  enqueueOutboundMessage,
+  scheduleFollowUp,
+  CartService,
+} from '@wcos/queue';
 
 export async function processFollowUp(job: Job<FollowUpJobData>): Promise<void> {
   const { tenantId, sessionId, followUpType } = job.data;
 
-  // 1. Fetch conversation
+  // 1. Fetch conversation scoped to tenantId
   const conversation = sessionId
-    ? await prisma.conversation.findUnique({ where: { id: sessionId } })
+    ? await prisma.conversation.findFirst({
+        where: { id: sessionId, tenantId },
+      })
     : null;
 
   if (!conversation) {
@@ -16,14 +22,14 @@ export async function processFollowUp(job: Job<FollowUpJobData>): Promise<void> 
   }
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant) return;
+  if (!tenant || tenant.status !== 'ACTIVE') return;
 
   const customerPhone = conversation.customerPhone;
 
   // 2. Handle Cart Abandonment (1 Hour)
   if (followUpType === 'cart_abandonment_1h') {
     if (conversation.stage === 'CART_ACTIVE') {
-      const cart = await CartService.getCart(tenantId, customerPhone);
+      const cart = await CartService.getCart(tenantId, customerPhone, 'wa');
       if (cart.items.length > 0) {
         await enqueueOutboundMessage({
           tenantId,
@@ -50,7 +56,7 @@ export async function processFollowUp(job: Job<FollowUpJobData>): Promise<void> 
   // 3. Handle Cart Abandonment (24 Hours)
   else if (followUpType === 'cart_abandonment_24h') {
     if (conversation.stage === 'CART_ACTIVE') {
-      const cart = await CartService.getCart(tenantId, customerPhone);
+      const cart = await CartService.getCart(tenantId, customerPhone, 'wa');
       if (cart.items.length > 0) {
         await enqueueOutboundMessage({
           tenantId,
@@ -66,8 +72,8 @@ export async function processFollowUp(job: Job<FollowUpJobData>): Promise<void> 
   // 4. Handle Payment Reminder (15 Minutes)
   else if (followUpType === 'payment_reminder_15m') {
     if (conversation.stage === 'AWAITING_PAYMENT' && conversation.pendingOrderId) {
-      const order = await prisma.order.findUnique({
-        where: { id: conversation.pendingOrderId },
+      const order = await prisma.order.findFirst({
+        where: { id: conversation.pendingOrderId, tenantId },
       });
 
       if (order && order.status === 'PENDING_PAYMENT') {
