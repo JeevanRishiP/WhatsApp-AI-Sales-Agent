@@ -12,6 +12,13 @@ interface TenantProductParams {
   tenantId: string;
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeSkuCode(code: string): string {
+  return code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
 export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', requireAdminAuth);
 
@@ -20,6 +27,9 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
     '/admin/tenants/:tenantId/products',
     async (request, reply) => {
       const { tenantId } = request.params;
+      if (!UUID_REGEX.test(tenantId)) {
+        return reply.status(400).send({ error: 'Invalid tenant ID' });
+      }
       const parsed = CreateProductSchema.safeParse(request.body);
 
       if (!parsed.success) {
@@ -62,6 +72,7 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
         data: {
           tenantId,
           code,
+          codeNormalized: normalizeSkuCode(code),
           name,
           description,
           category,
@@ -86,6 +97,9 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
     '/admin/tenants/:tenantId/products',
     async (request, reply) => {
       const { tenantId } = request.params;
+      if (!UUID_REGEX.test(tenantId)) {
+        return reply.status(400).send({ error: 'Invalid tenant ID' });
+      }
       const filterResult = ProductFilterSchema.safeParse(request.query);
       const filter = filterResult.success ? filterResult.data : ProductFilterSchema.parse({});
       const page = filter.page;
@@ -148,6 +162,9 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
     '/admin/tenants/:tenantId/products/import-csv',
     async (request, reply) => {
       const { tenantId } = request.params;
+      if (!UUID_REGEX.test(tenantId)) {
+        return reply.status(400).send({ error: 'Invalid tenant ID' });
+      }
       const rawBody = (request.body as { csvContent?: string })?.csvContent || (request.rawBody as string);
 
       if (!rawBody || typeof rawBody !== 'string') {
@@ -170,18 +187,21 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const successful: any[] = [];
+      const successful: string[] = [];
       const errors: Array<{ row: number; error: any }> = [];
+      const validRows: Array<{
+        rowNum: number;
+        data: typeof ProductCSVRowSchema._type;
+        imageUrls: string[];
+        tags: string[];
+      }> = [];
 
       for (let i = 0; i < records.length; i++) {
-        const row = records[i];
-        const parsed = ProductCSVRowSchema.safeParse(row);
-
+        const parsed = ProductCSVRowSchema.safeParse(records[i]);
         if (!parsed.success) {
           errors.push({ row: i + 1, error: parsed.error.format() });
           continue;
         }
-
         const data = parsed.data;
         const imageUrls = data.imageUrls
           ? data.imageUrls.split(',').map((u) => u.trim()).filter(Boolean)
@@ -189,41 +209,55 @@ export const productAdminRoutes: FastifyPluginAsync = async (fastify) => {
         const tags = data.tags
           ? data.tags.split(',').map((t) => t.trim()).filter(Boolean)
           : [];
+        validRows.push({ rowNum: i + 1, data, imageUrls, tags });
+      }
 
+      const CHUNK_SIZE = 50;
+      for (let start = 0; start < validRows.length; start += CHUNK_SIZE) {
+        const chunk = validRows.slice(start, start + CHUNK_SIZE);
         try {
-          const product = await prisma.product.upsert({
-            where: {
-              tenantId_code: { tenantId, code: data.code },
-            },
-            create: {
-              tenantId,
-              code: data.code,
-              name: data.name,
-              description: data.description,
-              category: data.category,
-              subcategory: data.subcategory,
-              price: data.price,
-              salePrice: data.salePrice,
-              stock: data.stock,
-              imageUrls,
-              tags,
-              status: 'ACTIVE',
-            },
-            update: {
-              name: data.name,
-              description: data.description,
-              category: data.category,
-              subcategory: data.subcategory,
-              price: data.price,
-              salePrice: data.salePrice,
-              stock: data.stock,
-              imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
-              tags: tags.length > 0 ? tags : undefined,
-            },
-          });
-          successful.push(product.id);
+          const results = await prisma.$transaction(
+            chunk.map(({ data, imageUrls, tags }) =>
+              prisma.product.upsert({
+                where: { tenantId_code: { tenantId, code: data.code } },
+                create: {
+                  tenantId,
+                  code: data.code,
+                  codeNormalized: normalizeSkuCode(data.code),
+                  name: data.name,
+                  description: data.description,
+                  category: data.category,
+                  subcategory: data.subcategory,
+                  price: data.price,
+                  salePrice: data.salePrice,
+                  stock: data.stock,
+                  imageUrls,
+                  tags,
+                  status: 'ACTIVE',
+                },
+                update: {
+                  codeNormalized: normalizeSkuCode(data.code),
+                  name: data.name,
+                  description: data.description,
+                  category: data.category,
+                  subcategory: data.subcategory,
+                  price: data.price,
+                  salePrice: data.salePrice,
+                  stock: data.stock,
+                  imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+                  tags: tags.length > 0 ? tags : undefined,
+                },
+                select: { id: true },
+              })
+            )
+          );
+          for (const res of results) {
+            successful.push(res.id);
+          }
         } catch (err: any) {
-          errors.push({ row: i + 1, error: err.message });
+          for (const item of chunk) {
+            errors.push({ row: item.rowNum, error: err.message });
+          }
         }
       }
 
