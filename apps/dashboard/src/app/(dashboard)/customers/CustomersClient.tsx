@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Users,
 } from 'lucide-react';
+import { formatDate, formatDateShort } from '@/lib/format';
 
 interface CustomerRecord {
   id: string;
@@ -211,11 +212,11 @@ export function CustomersClient({ customers, total, page, totalPages }: Customer
                           {c.isRepeatCustomer ? 'Repeat VIP' : 'Prospect'}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                        {new Date(c.lastContactAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                      <td
+                        style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+                        suppressHydrationWarning
+                      >
+                        {formatDateShort(c.lastContactAt)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
@@ -396,13 +397,13 @@ export function CustomersClient({ customers, total, page, totalPages }: Customer
                   color: 'var(--text-secondary)',
                 }}
               >
-                <div>
+                <div suppressHydrationWarning>
                   <strong style={{ color: 'var(--text-muted)' }}>First Contact:</strong>{' '}
-                  {new Date(selectedCustomer.firstContactAt).toLocaleDateString('en-IN')}
+                  {formatDate(selectedCustomer.firstContactAt)}
                 </div>
-                <div>
+                <div suppressHydrationWarning>
                   <strong style={{ color: 'var(--text-muted)' }}>Last Contact:</strong>{' '}
-                  {new Date(selectedCustomer.lastContactAt).toLocaleDateString('en-IN')}
+                  {formatDate(selectedCustomer.lastContactAt)}
                 </div>
               </div>
             </div>

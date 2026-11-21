@@ -18,6 +18,7 @@ import {
   updateCustomerProfileAction,
   sendCustomerDirectMessageAction,
 } from '../../../../lib/actions/customers';
+import { formatDateTime, formatDate, formatTime } from '@/lib/format';
 import {
   TrendingUp,
   ShoppingBag,
@@ -337,23 +338,12 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                   {profile.customerPhone}
                 </span>
                 <span>•</span>
-                <span>
-                  First seen:{' '}
-                  {new Date(profile.firstContactAt).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                <span suppressHydrationWarning>
+                  First seen: {formatDate(profile.firstContactAt)}
                 </span>
                 <span>•</span>
-                <span>
-                  Last active:{' '}
-                  {new Date(profile.lastContactAt).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                <span suppressHydrationWarning>
+                  Last active: {formatDateTime(profile.lastContactAt)}
                 </span>
               </div>
             </div>
@@ -1003,15 +993,11 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Placed on{' '}
-                        {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <div
+                        style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '4px' }}
+                        suppressHydrationWarning
+                      >
+                        Placed on {formatDateTime(order.createdAt)}
                       </div>
                     </div>
 
@@ -1457,10 +1443,7 @@ export function CustomerProfileClient({ profile }: CustomerProfileClientProps) {
                           marginTop: '4px',
                         }}
                       >
-                        {new Date(m.createdAt).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {formatTime(m.createdAt)}
                       </div>
                       </div>
                     </div>
