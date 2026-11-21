@@ -15,6 +15,7 @@ import {
   Copy,
   ExternalLink,
 } from 'lucide-react';
+import { formatDateTime, formatDate } from '@/lib/format';
 
 interface BillItem {
   id: string;
@@ -58,6 +59,13 @@ interface OrderBillData {
     ownerEmail: string;
     ownerPhone?: string | null;
     whatsappPhoneNumber?: string | null;
+    businessCategory?: string | null;
+    legalName?: string | null;
+    gstin?: string | null;
+    cin?: string | null;
+    warehouseAddress?: string | null;
+    defaultHsn?: string | null;
+    supportPhone?: string | null;
   };
   assignedStaff: {
     fullName: string;
@@ -223,24 +231,31 @@ export function OrderBillClient({
             {/* Header: Store Identity & Document Type */}
             <div className="invoice-header">
               <div>
-                <h1 className="brand-title">{order.tenant.name}</h1>
-                <p className="brand-subtitle">Haute Couture & Handcrafted Luxury Apparel</p>
+                <h1 className="brand-title">{order.tenant.legalName || order.tenant.name}</h1>
+                <p className="brand-subtitle">{order.tenant.businessCategory || 'Verified Commerce Store'}</p>
                 <div className="brand-meta">
-                  <p>100ft Road, Indiranagar, Bengaluru, KA 560038</p>
-                  <p>GSTIN: 29AAACH7409R1ZX | CIN: U74999KA2024PTC188201</p>
-                  <p>Support: {order.tenant.ownerEmail} | WhatsApp: {order.tenant.whatsappPhoneNumber || '+91 90634 37772'}</p>
+                  {order.tenant.warehouseAddress && <p>{order.tenant.warehouseAddress}</p>}
+                  {(order.tenant.gstin || order.tenant.cin) && (
+                    <p>
+                      {order.tenant.gstin ? `GSTIN: ${order.tenant.gstin}` : ''}
+                      {order.tenant.gstin && order.tenant.cin ? ' | ' : ''}
+                      {order.tenant.cin ? `CIN: ${order.tenant.cin}` : ''}
+                    </p>
+                  )}
+                  <p>
+                    Support: {order.tenant.ownerEmail}
+                    {(order.tenant.supportPhone || order.tenant.whatsappPhoneNumber || order.tenant.ownerPhone)
+                      ? ` | WhatsApp: ${order.tenant.supportPhone || order.tenant.whatsappPhoneNumber || order.tenant.ownerPhone}`
+                      : ''}
+                  </p>
                 </div>
               </div>
 
               <div className="invoice-badge-box">
                 <div className="invoice-type-pill">TAX INVOICE & SHIPPING BILL</div>
                 <div className="invoice-number-highlight">INV-2026-{order.orderNumber.replace(/[^A-Za-z0-9]/g, '')}</div>
-                <div className="invoice-date-text">
-                  Date: {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                <div className="invoice-date-text" suppressHydrationWarning>
+                  Date: {formatDate(order.createdAt)}
                 </div>
               </div>
             </div>
@@ -310,14 +325,8 @@ export function OrderBillClient({
                 )}
                 <div className="meta-row">
                   <span className="meta-key">Dispatched On:</span>
-                  <span className="meta-val">
-                    {new Date(order.dispatchedAt).toLocaleString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span className="meta-val" suppressHydrationWarning>
+                    {formatDateTime(order.dispatchedAt)}
                   </span>
                 </div>
                 <div className="meta-row">
@@ -345,7 +354,10 @@ export function OrderBillClient({
                     <td>{idx + 1}</td>
                     <td>
                       <div className="item-name">{item.productName}</div>
-                      <div className="item-sub">HSN: 6204 • Handcrafted 100% Authentic Silk</div>
+                      <div className="item-sub">
+                        {order.tenant.defaultHsn ? `HSN: ${order.tenant.defaultHsn} • ` : ''}
+                        Verified Merchant Catalog Item
+                      </div>
                     </td>
                     <td>
                       <code className="sku-tag">{item.productCode}</code>
@@ -366,13 +378,13 @@ export function OrderBillClient({
                 <div className="declaration-title">Declaration & Return Policy:</div>
                 <p className="declaration-text">
                   1. We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.<br />
-                  2. 7-Day luxury boutique exchange window for unworn items with tags intact.<br />
+                  2. Refer to store return policy for eligible exchanges on unworn items with original tags intact.<br />
                   3. Scan the QR code or visit <span style={{ textDecoration: 'underline' }}>{order.trackingUrl}</span> for real-time live delivery updates.
                 </p>
                 <div className="signature-box">
                   <div className="signature-line" />
                   <div className="signature-label">Authorized Packing & Dispatch Officer Signature</div>
-                  <div className="signature-sub">{order.assignedStaff.fullName} • Aura Luxe Fulfillment Center</div>
+                  <div className="signature-sub">{order.assignedStaff.fullName} • {order.tenant.name} Fulfillment Center</div>
                 </div>
               </div>
 
@@ -405,7 +417,7 @@ export function OrderBillClient({
             {/* Footer */}
             <div className="invoice-footer">
               <span>This is a computer-generated tax invoice & shipping manifest. No physical signature required.</span>
-              <span>Aura Luxe Boutique Commerce OS • Powered by AI Sales Agent</span>
+              <span>{order.tenant.name} • Powered by WhatsApp Commerce OS</span>
             </div>
           </div>
         ) : (
@@ -455,7 +467,11 @@ export function OrderBillClient({
             <div className="label-shipper-row">
               <div className="shipper-text">
                 <strong>RETURN IF UNDELIVERED TO:</strong><br />
-                {order.tenant.name}, 100ft Road, Indiranagar, Bengaluru, KA 560038 • Ph: {order.tenant.ownerPhone || '9063437772'}
+                {order.tenant.legalName || order.tenant.name}
+                {order.tenant.warehouseAddress ? `, ${order.tenant.warehouseAddress}` : ''}
+                {(order.tenant.supportPhone || order.tenant.ownerPhone)
+                  ? ` • Ph: ${order.tenant.supportPhone || order.tenant.ownerPhone}`
+                  : ''}
               </div>
               <div className="cod-status-box">
                 <div className="payment-type-label">PAYMENT</div>
@@ -472,7 +488,7 @@ export function OrderBillClient({
             {/* Bottom Security Strip */}
             <div className="label-footer-strip">
               <span>SECURITY SEALED BY: {order.assignedStaff.fullName}</span>
-              <span>VERIFIED LUXURY PACKAGING</span>
+              <span>VERIFIED FULFILLMENT MANIFEST</span>
             </div>
           </div>
         )}

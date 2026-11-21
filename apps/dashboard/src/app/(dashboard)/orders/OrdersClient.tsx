@@ -10,6 +10,7 @@ import {
   simulateRazorpayPaymentAction,
   generateBillAndAwbAction,
 } from '../../../lib/actions/orders';
+import { formatDateTime } from '@/lib/format';
 import {
   Search,
   Download,
@@ -405,13 +406,11 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
                           {order.status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                        {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <td
+                        style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+                        suppressHydrationWarning
+                      >
+                        {formatDateTime(order.createdAt)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
@@ -493,8 +492,11 @@ export function OrdersClient({ orders, total, page, totalPages }: OrdersClientPr
                     {selectedOrder.status}
                   </span>
                 </h2>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
-                  Placed on {new Date(selectedOrder.createdAt).toLocaleString('en-IN')}
+                <span
+                  style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}
+                  suppressHydrationWarning
+                >
+                  Placed on {formatDateTime(selectedOrder.createdAt)}
                 </span>
               </div>
               <button

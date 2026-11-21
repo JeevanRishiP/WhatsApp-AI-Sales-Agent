@@ -202,19 +202,34 @@ export default async function OrderBillPage({ params, searchParams }: BillPagePr
     generateAwbNumber('DELHIVERY', `${order.orderNumber}-${order.customerPhone}`);
 
   const storefrontBase =
-    process.env['NEXT_PUBLIC_STOREFRONT_URL'] ||
-    process.env['STOREFRONT_URL'] ||
-    'http://localhost:3005';
+    order.tenant?.customDomain
+      ? `https://${order.tenant.customDomain}`
+      : process.env['NEXT_PUBLIC_STOREFRONT_URL'] ||
+        process.env['STOREFRONT_URL'] ||
+        'http://localhost:3005';
 
-  const slug = order.tenant?.slug || 'aura';
+  const slug = order.tenant?.slug || '';
   const trackingUrl =
-    order.trackingUrl || `${storefrontBase}/${slug}/track?awb=${awbCode}`;
+    order.trackingUrl ||
+    (order.tenant?.customDomain
+      ? `${storefrontBase}/track?awb=${awbCode}`
+      : `${storefrontBase}${slug ? `/${slug}` : ''}/track?awb=${awbCode}`);
 
   // Generate crisp SVGs for printing
   const barcodeSvg = generateBarcodeSvg(awbCode, 48);
   const qrCodeSvg = await generateQrCodeSvg(trackingUrl, 120);
 
   const deliveryAddress = (order.deliveryAddress as any) || {};
+
+  const rawWh = order.tenant.warehouseAddress as any;
+  const formattedWarehouseAddress =
+    typeof rawWh === 'string'
+      ? rawWh
+      : rawWh && typeof rawWh === 'object'
+      ? [rawWh.line1 || rawWh.addressLine1, rawWh.line2, rawWh.city, rawWh.state, rawWh.pincode]
+          .filter(Boolean)
+          .join(', ')
+      : null;
 
   return (
     <OrderBillClient
@@ -237,11 +252,11 @@ export default async function OrderBillPage({ params, searchParams }: BillPagePr
         trackingUrl,
         dispatchedAt: order.dispatchedAt?.toISOString() || new Date().toISOString(),
         deliveryAddress: {
-          addressLine1: deliveryAddress.addressLine1 || deliveryAddress.line1 || 'Indiranagar 100ft Road',
+          addressLine1: deliveryAddress.addressLine1 || deliveryAddress.line1 || 'Address on file',
           addressLine2: deliveryAddress.addressLine2 || deliveryAddress.line2 || '',
-          city: deliveryAddress.city || 'Bengaluru',
-          state: deliveryAddress.state || 'Karnataka',
-          pincode: deliveryAddress.pincode || deliveryAddress.postalCode || '560038',
+          city: deliveryAddress.city || '',
+          state: deliveryAddress.state || '',
+          pincode: deliveryAddress.pincode || deliveryAddress.postalCode || '',
           landmark: deliveryAddress.landmark || '',
         },
         items: order.items.map((it) => ({
@@ -254,10 +269,17 @@ export default async function OrderBillPage({ params, searchParams }: BillPagePr
         })),
         tenant: {
           name: order.tenant.name,
-          slug: order.tenant.slug || 'aura',
+          slug: order.tenant.slug || '',
           ownerEmail: order.tenant.ownerEmail,
           ownerPhone: order.tenant.ownerPhone,
           whatsappPhoneNumber: order.tenant.whatsappPhoneNumber,
+          businessCategory: order.tenant.businessCategory,
+          legalName: order.tenant.legalName,
+          gstin: order.tenant.gstin,
+          cin: order.tenant.cin,
+          warehouseAddress: formattedWarehouseAddress,
+          defaultHsn: order.tenant.defaultHsn,
+          supportPhone: order.tenant.supportPhone,
         },
         assignedStaff: order.assignedStaff
           ? {
@@ -265,7 +287,7 @@ export default async function OrderBillPage({ params, searchParams }: BillPagePr
               role: order.assignedStaff.role,
             }
           : {
-              fullName: session.staffName || 'Priya Nair',
+              fullName: session.staffName || order.tenant.ownerName || 'Fulfillment Desk',
               role: 'FULFILLMENT_LEAD',
             },
       }}
