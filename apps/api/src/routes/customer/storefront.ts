@@ -2,7 +2,34 @@ import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { CustomerAuthService } from '../../services/customer-auth-service.js';
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const customerStorefrontRoutes: FastifyPluginAsync = async (server) => {
+  /**
+   * Resolves a verified custom domain hostname to an active tenant slug.
+   */
+  server.get<{
+    Querystring: { host?: string };
+  }>('/api/v1/customer/resolve-domain', async (request, reply) => {
+    const rawHost = (request.query.host || '').toLowerCase().trim().split(':')[0] || '';
+    if (!rawHost) {
+      return reply.status(400).send({ error: 'Host query parameter required' });
+    }
+    const bareHost = rawHost.startsWith('www.') ? rawHost.slice(4) : rawHost;
+    const tenant = await prisma.tenant.findFirst({
+      where: {
+        status: 'ACTIVE',
+        customDomain: { in: [rawHost, bareHost] },
+      },
+      select: { slug: true },
+    });
+    if (!tenant) {
+      return reply.status(404).send({ error: 'DomainNotMapped' });
+    }
+    return reply.send({ slug: tenant.slug });
+  });
+
   /**
    * Public store profile, brand colors, typography style, and shopping policies.
    */
@@ -154,7 +181,11 @@ export const customerStorefrontRoutes: FastifyPluginAsync = async (server) => {
       const product = await prisma.product.findFirst({
         where: {
           tenantId: tenant.id,
-          OR: [{ id: id.length === 36 ? id : undefined }, { code: id }],
+          status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
+          OR: [
+            ...(UUID_REGEX.test(id) ? [{ id }] : []),
+            { code: { equals: id, mode: 'insensitive' } },
+          ],
         },
       });
 
