@@ -50,17 +50,17 @@ export interface ConfiguredModel {
 // Gemini is primary; OpenAI is the fallback. Anthropic is optional.
 
 export const DEFAULT_FAST_MODELS: ModelEntry[] = [
-  { provider: 'google',    model: 'gemini-3.5-flash',        enabled: true },
-  { provider: 'google',    model: 'gemini-3.5-flash-lite',   enabled: true },
-  { provider: 'google',    model: 'gemini-3.8-flash',        enabled: true },
-  { provider: 'openai',    model: 'gpt-4o-mini',             enabled: true },
+  { provider: 'google',    model: 'gemini-2.5-flash',          enabled: true },
+  { provider: 'google',    model: 'gemini-2.5-flash-lite',     enabled: true },
+  { provider: 'google',    model: 'gemini-2.0-flash',          enabled: true },
+  { provider: 'openai',    model: 'gpt-4o-mini',               enabled: true },
   { provider: 'anthropic', model: 'claude-3-5-haiku-20241022', enabled: false },
 ];
 
 export const DEFAULT_ADVANCED_MODELS: ModelEntry[] = [
-  { provider: 'google',    model: 'gemini-3.5-flash',        enabled: true },
-  { provider: 'google',    model: 'gemini-3.8-flash',        enabled: true },
-  { provider: 'openai',    model: 'gpt-4o',                  enabled: true },
+  { provider: 'google',    model: 'gemini-2.5-flash',           enabled: true },
+  { provider: 'google',    model: 'gemini-2.0-flash',           enabled: true },
+  { provider: 'openai',    model: 'gpt-4o',                     enabled: true },
   { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', enabled: false },
 ];
 
@@ -72,10 +72,9 @@ export const ALL_SUPPORTED_MODELS: Array<{
   tier: ModelTier[];
 }> = [
   // Google Gemini
-  { provider: 'google', model: 'gemini-3.5-flash',        label: 'Gemini 3.5 Flash',         tier: ['fast', 'advanced'] },
-  { provider: 'google', model: 'gemini-3.5-flash-lite',   label: 'Gemini 3.5 Flash Lite',    tier: ['fast'] },
-  { provider: 'google', model: 'gemini-3.8-flash',        label: 'Gemini 3.8 Flash',         tier: ['fast', 'advanced'] },
-  { provider: 'google', model: 'gemini-3.7-flash',        label: 'Gemini 3.7 Flash',         tier: ['fast', 'advanced'] },
+  { provider: 'google', model: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash',         tier: ['fast', 'advanced'] },
+  { provider: 'google', model: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash Lite',    tier: ['fast'] },
+  { provider: 'google', model: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash',         tier: ['fast', 'advanced'] },
   // OpenAI
   { provider: 'openai', model: 'gpt-4o-mini',             label: 'GPT-4o Mini',              tier: ['fast'] },
   { provider: 'openai', model: 'gpt-4o',                  label: 'GPT-4o',                   tier: ['advanced'] },
