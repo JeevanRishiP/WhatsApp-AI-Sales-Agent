@@ -11,7 +11,7 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
-    "@prisma/client": "^6.2.0",
+    "@prisma/client": "^7.10.1",
     "@wcos/crypto": "workspace:*",
     "@wcos/db": "workspace:*",
     "@wcos/queue": "workspace:*",

@@ -26,7 +26,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
   const cleanPhone = tenant.whatsappPhoneNumber?.replace(/[^0-9]/g, '');
   const waInquiryUrl = cleanPhone
     ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-        `Namaste! I would like to inquire about the ${product.name} [Code: ${product.code}]. Can you share more details or a video drape?`
+        `Hi! I would like to inquire about the ${product.name} [Code: ${product.code}]. Could you share more details?`
       )}`
     : '#';
 
@@ -41,12 +41,12 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
           className="inline-flex items-center gap-2 text-xs font-mono text-neutral-500 hover:text-neutral-900 transition-colors no-underline"
         >
           <ArrowLeftIcon size={14} />
-          <span>Return to Saree Collection</span>
+          <span>Return to Storefront</span>
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-start">
-        {/* Left: Saree Photography Gallery */}
+        {/* Left: Product Photography Gallery */}
         <div className="space-y-4">
           <div className="aspect-[3/4] bg-stone-100 border border-neutral-200/80 rounded-xs overflow-hidden relative">
             {product.imageUrls[0] || product.thumbnailUrl ? (
@@ -58,7 +58,9 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-neutral-300 font-serif text-2xl">
                 <span>{product.name.slice(0, 1)}</span>
-                <span className="text-xs font-mono text-neutral-400 mt-2 tracking-widest">HANDWOVEN SILK</span>
+                <span className="text-xs font-mono text-neutral-400 mt-2 tracking-widest uppercase">
+                  {tenant.name}
+                </span>
               </div>
             )}
 
@@ -81,11 +83,11 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
           )}
         </div>
 
-        {/* Right: Saree Specifications & Order Actions */}
+        {/* Right: Product Specifications & Order Actions */}
         <div className="space-y-8">
           <div className="space-y-2">
             <p className="micro-caps text-neutral-400">
-              {product.subcategory ? `${product.subcategory} Silk` : product.category} • SKU: {product.code}
+              {product.subcategory ? `${product.subcategory} • ${product.category}` : product.category} • SKU: {product.code}
             </p>
             <h1 className="text-3xl md:text-4xl font-serif text-neutral-900 font-normal leading-tight">
               {product.name}
@@ -167,15 +169,15 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
           <div className="space-y-3 pt-6 text-xs font-mono text-neutral-500">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-              <span>WhatsApp Concierge: Meera is available to assist with drape consultations</span>
+              <span>WhatsApp Concierge: {tenant.botName} is available to assist with product inquiries</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
-              <span>Complimentary insured shipping across India</span>
+              <span>Insured doorstep shipping & real-time tracking</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
-              <span>Authentic Silk Mark certified handloom weaving</span>
+              <span>Verified quality guarantee from {tenant.name}</span>
             </div>
           </div>
         </div>

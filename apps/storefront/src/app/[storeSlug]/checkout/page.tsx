@@ -104,10 +104,17 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wcos_customer_token') : null;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-tenant-slug': tenantSlug,
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${apiBase}/api/v1/customer/checkout`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           tenantSlug,
           channel,

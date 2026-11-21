@@ -9,6 +9,7 @@ import {
   ArrowLeftIcon,
   WhatsAppIcon,
 } from '@/components/icons';
+import { formatDateTime } from '@/lib/format';
 
 interface TrackingEvent {
   status: string;
@@ -240,13 +241,8 @@ export default function PublicTrackingPage() {
                           <span className={`font-medium ${evt.completed || evt.current ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`}>
                             {evt.label}
                           </span>
-                          <span className="text-[10px] text-neutral-400">
-                            {new Date(evt.timestamp).toLocaleString('en-IN', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                          <span className="text-[10px] text-neutral-400" suppressHydrationWarning>
+                            {formatDateTime(evt.timestamp)}
                           </span>
                         </div>
                         <p className="text-[11px] text-neutral-600">{evt.description}</p>
