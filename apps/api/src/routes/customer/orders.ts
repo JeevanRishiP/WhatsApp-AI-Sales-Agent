@@ -1,10 +1,32 @@
+import crypto from 'node:crypto';
 import { type FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '@wcos/db';
 import { CartService } from '@wcos/queue';
+import { paymentGatewayRouter, detectPlatformFromUserAgent } from '@wcos/payments';
 import { getDelhiveryLiveTrackingStatus } from '@wcos/types';
 import { requireCustomerAuth } from '../../middleware/customer-auth.js';
 import { EvolutionService } from '../../services/evolution-service.js';
 import { CustomerAuthService } from '../../services/customer-auth-service.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const WebCheckoutSchema = z.object({
+  tenantSlug: z.string().min(1).max(80).optional(),
+  channel: z.enum(['web', 'wa']).default('web'),
+  paymentMethod: z.enum(['RAZORPAY_ONLINE', 'PHONEPE_ONLINE', 'COD']).default('RAZORPAY_ONLINE'),
+  deliveryAddress: z.object({
+    recipientName: z.string().trim().min(2).max(100),
+    phone: z.string().trim().min(8).max(20),
+    line1: z.string().trim().min(3).max(255),
+    line2: z.string().trim().max(255).optional(),
+    landmark: z.string().trim().max(100).optional(),
+    city: z.string().trim().min(2).max(100),
+    state: z.string().trim().min(2).max(100),
+    pincode: z.string().trim().min(4).max(12),
+    instructions: z.string().trim().max(500).optional(),
+  }),
+});
 
 function getPhoneVariants(phone: string): string[] {
   const clean = phone.replace(/[^0-9]/g, '');
@@ -16,6 +38,12 @@ function getPhoneVariants(phone: string): string[] {
     `+91${clean.replace(/^91/, '')}`,
     `91${clean.replace(/^91/, '')}`,
   ];
+}
+
+function generateCollisionSafeOrderNumber(prefix: string): string {
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const randPart = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `${prefix}-${datePart}-${randPart}`;
 }
 
 export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
@@ -51,8 +79,14 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
           tax: Number(o.tax),
           shippingCharge: Number(o.shippingCharge),
           total: Number(o.total),
-          isEditable: o.status === 'PAYMENT_CONFIRMED' || o.status === 'PROCESSING' || o.status === 'PENDING_PAYMENT',
-          isCancellable: o.status === 'PAYMENT_CONFIRMED' || o.status === 'PROCESSING' || o.status === 'PENDING_PAYMENT',
+          isEditable:
+            o.status === 'PAYMENT_CONFIRMED' ||
+            o.status === 'PROCESSING' ||
+            o.status === 'PENDING_PAYMENT',
+          isCancellable:
+            o.status === 'PAYMENT_CONFIRMED' ||
+            o.status === 'PROCESSING' ||
+            o.status === 'PENDING_PAYMENT',
         })),
       });
     }
@@ -78,7 +112,14 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
             { customerId: session.customerId },
             { customerPhone: { in: phoneVariants } },
           ],
-          AND: [{ OR: [{ id: id.length === 36 ? id : undefined }, { orderNumber: id }] }],
+          AND: [
+            {
+              OR: [
+                ...(UUID_REGEX.test(id) ? [{ id }] : []),
+                { orderNumber: id },
+              ],
+            },
+          ],
         },
         include: {
           items: true,
@@ -105,8 +146,14 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
           tax: Number(order.tax),
           shippingCharge: Number(order.shippingCharge),
           total: Number(order.total),
-          isEditable: order.status === 'PAYMENT_CONFIRMED' || order.status === 'PROCESSING' || order.status === 'PENDING_PAYMENT',
-          isCancellable: order.status === 'PAYMENT_CONFIRMED' || order.status === 'PROCESSING' || order.status === 'PENDING_PAYMENT',
+          isEditable:
+            order.status === 'PAYMENT_CONFIRMED' ||
+            order.status === 'PROCESSING' ||
+            order.status === 'PENDING_PAYMENT',
+          isCancellable:
+            order.status === 'PAYMENT_CONFIRMED' ||
+            order.status === 'PROCESSING' ||
+            order.status === 'PENDING_PAYMENT',
         },
       });
     }
@@ -145,7 +192,14 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
             { customerId: session.customerId },
             { customerPhone: { in: phoneVariants } },
           ],
-          AND: [{ OR: [{ id: id.length === 36 ? id : undefined }, { orderNumber: id }] }],
+          AND: [
+            {
+              OR: [
+                ...(UUID_REGEX.test(id) ? [{ id }] : []),
+                { orderNumber: id },
+              ],
+            },
+          ],
         },
         include: {
           tenant: true,
@@ -156,20 +210,18 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send({ error: 'Order not found' });
       }
 
-      // Check if order has already been shipped or delivered
       if (order.status === 'SHIPPED' || order.status === 'DELIVERED') {
         return reply.status(400).send({
           error: 'Order has already been dispatched. Delivery details cannot be modified self-service.',
         });
       }
 
-      if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+      if (order.status === 'CANCELLED' || order.status === 'REFUNDED' || order.status === 'REFUND_INITIATED') {
         return reply.status(400).send({
-          error: 'Order is cancelled and cannot be modified.',
+          error: 'Order is cancelled/refunded and cannot be modified.',
         });
       }
 
-      // Merge current address with updates
       const currentAddress = (order.deliveryAddress as any) || {};
       const newAddress = {
         recipientName: updateData.recipientName || currentAddress.recipientName || order.customerName,
@@ -194,7 +246,6 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         include: { items: true },
       });
 
-      // Write immutable audit log
       await prisma.auditLog.create({
         data: {
           tenantId: session.tenantId,
@@ -210,7 +261,6 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         },
       });
 
-      // Auto-upsert into CustomerAddress table for multiple addresses support
       try {
         const existingCustAddr = await prisma.customerAddress.findFirst({
           where: {
@@ -252,7 +302,6 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         console.warn('[Orders] Could not auto-upsert CustomerAddress:', custAddrErr.message);
       }
 
-      // Dispatch automated confirmation to WhatsApp
       const waMessage = `✨ *Delivery Address Updated*\n\n` +
         `Your delivery details for Order *#${order.orderNumber}* at *${order.tenant.name}* have been updated:\n\n` +
         `📍 *Destination:*\n` +
@@ -280,7 +329,7 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
   );
 
   /**
-   * Self-service order cancellation before fulfillment.
+   * Self-service order cancellation before fulfillment (atomically restores inventory).
    */
   server.post<{
     Params: { id: string };
@@ -301,9 +350,16 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
             { customerId: session.customerId },
             { customerPhone: { in: phoneVariants } },
           ],
-          AND: [{ OR: [{ id: id.length === 36 ? id : undefined }, { orderNumber: id }] }],
+          AND: [
+            {
+              OR: [
+                ...(UUID_REGEX.test(id) ? [{ id }] : []),
+                { orderNumber: id },
+              ],
+            },
+          ],
         },
-        include: { tenant: true },
+        include: { tenant: true, items: true, reservation: true },
       });
 
       if (!order) {
@@ -316,65 +372,113 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         });
       }
 
-      if (order.status === 'CANCELLED') {
-        return reply.status(400).send({ error: 'Order is already cancelled' });
+      if (order.status === 'CANCELLED' || order.status === 'REFUNDED') {
+        return reply.status(400).send({ error: 'Order is already cancelled or refunded' });
       }
 
-      const updatedOrder = await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'CANCELLED',
-          cancelReason: reason,
-        },
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        const cas = await tx.order.updateMany({
+          where: {
+            id: order.id,
+            tenantId: session.tenantId,
+            status: { in: ['PENDING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING'] },
+          },
+          data: {
+            status: 'CANCELLED',
+            cancelReason: reason,
+          },
+        });
+        if (cas.count !== 1) {
+          throw new Error('ORDER_STATE_CONFLICT');
+        }
+
+        // Release ACTIVE reservation OR restore committed stock
+        if (order.reservationId && order.reservation) {
+          const resReleased = await tx.inventoryReservation.updateMany({
+            where: { id: order.reservationId, status: 'ACTIVE' },
+            data: { status: 'RELEASED' },
+          });
+
+          const resItems = Array.isArray(order.reservation.items)
+            ? (order.reservation.items as Array<{ productId: string; quantity: number }>)
+            : [];
+
+          if (resReleased.count === 1) {
+            for (const it of resItems) {
+              if (it.productId && it.quantity > 0) {
+                await tx.$executeRaw`
+                  UPDATE "Product"
+                  SET reserved = GREATEST(0, reserved - ${it.quantity}), "updatedAt" = NOW()
+                  WHERE id = ${it.productId}::uuid AND "tenantId" = ${session.tenantId}::uuid
+                `;
+              }
+            }
+          } else if (
+            order.reservation.status === 'COMMITTED' ||
+            order.status === 'PAYMENT_CONFIRMED' ||
+            order.status === 'PROCESSING'
+          ) {
+            for (const it of order.items) {
+              await tx.$executeRaw`
+                UPDATE "Product"
+                SET stock = stock + ${it.quantity},
+                    status = CASE WHEN status = 'OUT_OF_STOCK' THEN 'ACTIVE'::"ProductStatus" ELSE status END,
+                    "updatedAt" = NOW()
+                WHERE id = ${it.productId}::uuid AND "tenantId" = ${session.tenantId}::uuid
+              `;
+            }
+          }
+        } else if (order.status === 'PAYMENT_CONFIRMED' || order.status === 'PROCESSING') {
+          for (const it of order.items) {
+            await tx.$executeRaw`
+              UPDATE "Product"
+              SET stock = stock + ${it.quantity},
+                  status = CASE WHEN status = 'OUT_OF_STOCK' THEN 'ACTIVE'::"ProductStatus" ELSE status END,
+                  "updatedAt" = NOW()
+              WHERE id = ${it.productId}::uuid AND "tenantId" = ${session.tenantId}::uuid
+            `;
+          }
+        }
+
+        return tx.order.findUniqueOrThrow({ where: { id: order.id } });
       });
 
-      // Send WhatsApp cancellation alert
       const waMessage = `Order *#${order.orderNumber}* at *${order.tenant.name}* has been cancelled.\n\n` +
         `Reason: _${reason}_\n\n` +
-        `If payment was captured, our concierge will process your refund according to our boutique policy.`;
+        `If payment was captured, our concierge will process your refund according to our store policy.`;
 
       await EvolutionService.sendTextMessage(order.tenant.whatsappInstanceName, session.phone, waMessage);
 
       return reply.send({
         order: updatedOrder,
-        message: 'Order cancelled successfully',
+        message: 'Order cancelled and inventory restored successfully',
       });
     }
   );
 
   /**
-   * Web Checkout: Converts the active web cart into an Order.
+   * Web Checkout: Re-prices items from live Postgres catalog, atomically reserves/deducts stock,
+   * creates InventoryReservation linked via Order.reservationId, and generates online payment links.
    */
-  server.post<{
-    Body: {
-      tenantSlug: string;
-      channel?: 'web' | 'wa';
-      deliveryAddress: {
-        recipientName: string;
-        phone: string;
-        line1: string;
-        line2?: string;
-        landmark?: string;
-        city: string;
-        state: string;
-        pincode: string;
-        instructions?: string;
-      };
-      paymentMethod?: 'RAZORPAY_ONLINE' | 'PHONEPE_ONLINE' | 'COD';
-    };
-  }>(
+  server.post(
     '/api/v1/customer/checkout',
     { preHandler: [requireCustomerAuth] },
     async (request, reply) => {
       const session = request.customerSession!;
-      const { channel = 'web', deliveryAddress, paymentMethod = 'RAZORPAY_ONLINE' } = request.body;
+      const parsed = WebCheckoutSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.errors[0]?.message || 'Invalid checkout payload',
+        });
+      }
 
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: session.tenantId },
+      const { channel, deliveryAddress, paymentMethod } = parsed.data;
+
+      const tenant = await prisma.tenant.findFirst({
+        where: { id: session.tenantId, status: 'ACTIVE' },
       });
-
       if (!tenant) {
-        return reply.status(404).send({ error: 'Store not found' });
+        return reply.status(404).send({ error: 'Active store not found' });
       }
 
       const cart = await CartService.getCart(tenant.id, session.phone, channel);
@@ -382,44 +486,214 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send({ error: 'Cart is empty' });
       }
 
-      // Generate order number
-      const count = await prisma.order.count({ where: { tenantId: tenant.id } });
-      const orderNumber = `WCOS-${(count + 1001).toString()}`;
+      const storePolicies = (tenant.storePolicies as Record<string, any>) || {};
+      const freeShippingThreshold = Number(storePolicies['freeShippingThreshold'] ?? 1999);
+      const standardShippingFee = Number(storePolicies['standardShippingFee'] ?? 99);
 
-      const order = await prisma.order.create({
-        data: {
-          tenantId: tenant.id,
-          customerId: session.customerId,
-          customerPhone: session.phone,
-          customerName: deliveryAddress.recipientName,
-          orderNumber,
-          subtotal: cart.subtotal,
-          total: cart.subtotal,
-          currency: cart.currency,
-          status: paymentMethod === 'COD' ? 'PROCESSING' : 'PENDING_PAYMENT',
-          paymentMethod,
-          deliveryAddress,
-          items: {
-            create: cart.items.map((i) => ({
-              productId: i.productId,
-              productCode: i.productCode,
-              productName: i.productName,
-              productImageUrl: i.imageUrl,
-              quantity: i.quantity,
-              priceAtOrder: i.priceAtAdd,
-              totalAtOrder: Number((i.priceAtAdd * i.quantity).toFixed(2)),
-            })),
-          },
-        },
-        include: { items: true },
-      });
+      const orderNumber = generateCollisionSafeOrderNumber('WCOS');
 
-      // Clear the checked out cart
+      let createdOrder: any;
+      try {
+        createdOrder = await prisma.$transaction(async (tx) => {
+          const liveItems: Array<{
+            productId: string;
+            productCode: string;
+            productName: string;
+            productImageUrl: string | null;
+            quantity: number;
+            unitPrice: number;
+            mrpPrice: number;
+            totalAtOrder: number;
+          }> = [];
+
+          let itemSubtotal = 0;
+          let totalMrp = 0;
+
+          for (const cartItem of cart.items) {
+            const product = await tx.product.findFirst({
+              where: {
+                id: cartItem.productId,
+                tenantId: tenant.id,
+                status: 'ACTIVE',
+              },
+            });
+            if (!product) {
+              throw new Error(`PRODUCT_UNAVAILABLE:${cartItem.productName}`);
+            }
+
+            // Conditional atomic reservation / stock check
+            if (paymentMethod === 'COD') {
+              const affected = await tx.$executeRaw`
+                UPDATE "Product"
+                SET stock = stock - ${cartItem.quantity},
+                    status = CASE WHEN stock - ${cartItem.quantity} = 0 THEN 'OUT_OF_STOCK'::"ProductStatus" ELSE status END,
+                    "updatedAt" = NOW()
+                WHERE id = ${product.id}::uuid
+                  AND "tenantId" = ${tenant.id}::uuid
+                  AND (stock - reserved) >= ${cartItem.quantity}
+              `;
+              if (affected !== 1) {
+                throw new Error(`OUT_OF_STOCK:${product.name}`);
+              }
+            } else {
+              const affected = await tx.$executeRaw`
+                UPDATE "Product"
+                SET reserved = reserved + ${cartItem.quantity},
+                    "updatedAt" = NOW()
+                WHERE id = ${product.id}::uuid
+                  AND "tenantId" = ${tenant.id}::uuid
+                  AND (stock - reserved) >= ${cartItem.quantity}
+              `;
+              if (affected !== 1) {
+                throw new Error(`OUT_OF_STOCK:${product.name}`);
+              }
+            }
+
+            const mrp = Number(product.price);
+            const effectiveUnitPrice = Number(product.salePrice ?? product.price);
+            const lineTotal = Number((effectiveUnitPrice * cartItem.quantity).toFixed(2));
+            itemSubtotal += lineTotal;
+            totalMrp += mrp * cartItem.quantity;
+
+            liveItems.push({
+              productId: product.id,
+              productCode: product.code,
+              productName: product.name,
+              productImageUrl: product.thumbnailUrl || product.imageUrls[0] || null,
+              quantity: cartItem.quantity,
+              unitPrice: effectiveUnitPrice,
+              mrpPrice: mrp,
+              totalAtOrder: lineTotal,
+            });
+          }
+
+          const totalDiscount = Number(Math.max(0, totalMrp - itemSubtotal).toFixed(2));
+          const shippingCharge =
+            itemSubtotal >= freeShippingThreshold ? 0 : standardShippingFee;
+          const total = Number((itemSubtotal + shippingCharge).toFixed(2));
+
+          const reservation = await tx.inventoryReservation.create({
+            data: {
+              tenantId: tenant.id,
+              items: liveItems.map((it) => ({
+                productId: it.productId,
+                quantity: it.quantity,
+              })),
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+              status: paymentMethod === 'COD' ? 'COMMITTED' : 'ACTIVE',
+            },
+          });
+
+          return tx.order.create({
+            data: {
+              tenantId: tenant.id,
+              customerId: session.customerId,
+              customerPhone: session.phone,
+              customerName: deliveryAddress.recipientName,
+              orderNumber,
+              subtotal: itemSubtotal,
+              discount: totalDiscount,
+              shippingCharge,
+              total,
+              currency: 'INR',
+              status: paymentMethod === 'COD' ? 'PROCESSING' : 'PENDING_PAYMENT',
+              paymentMethod,
+              reservationId: reservation.id,
+              deliveryAddress,
+              items: {
+                create: liveItems.map((i) => ({
+                  productId: i.productId,
+                  productCode: i.productCode,
+                  productName: i.productName,
+                  productImageUrl: i.productImageUrl,
+                  quantity: i.quantity,
+                  priceAtOrder: i.unitPrice,
+                  totalAtOrder: i.totalAtOrder,
+                })),
+              },
+            },
+            include: { items: true },
+          });
+        });
+      } catch (err: any) {
+        if (typeof err.message === 'string' && err.message.startsWith('OUT_OF_STOCK:')) {
+          return reply.status(409).send({
+            error: `Insufficient stock for ${err.message.slice('OUT_OF_STOCK:'.length)}`,
+          });
+        }
+        if (typeof err.message === 'string' && err.message.startsWith('PRODUCT_UNAVAILABLE:')) {
+          return reply.status(400).send({
+            error: `${err.message.slice('PRODUCT_UNAVAILABLE:'.length)} is no longer active`,
+          });
+        }
+        throw err;
+      }
+
+      let paymentUrl: string | undefined;
+      if (paymentMethod !== 'COD') {
+        const ua = String(request.headers['user-agent'] || '');
+        const platform =
+          paymentMethod === 'PHONEPE_ONLINE' ? 'android' : detectPlatformFromUserAgent(ua);
+        try {
+          const routerResult = await paymentGatewayRouter.createPaymentLink(
+            {
+              tenantId: tenant.id,
+              orderId: createdOrder.id,
+              orderNumber: createdOrder.orderNumber,
+              amount: Number(createdOrder.total),
+              currency: createdOrder.currency || 'INR',
+              customerName: deliveryAddress.recipientName,
+              customerPhone: session.phone,
+              description: `Order #${createdOrder.orderNumber} - ${tenant.name}`,
+            },
+            platform,
+            tenant.paymentConfigEncrypted
+          );
+          paymentUrl = routerResult.paymentUrl;
+
+          createdOrder = await prisma.order.update({
+            where: { id: createdOrder.id },
+            data: {
+              paymentMethod: routerResult.paymentMethod,
+              razorpayOrderId: routerResult.phonePeTransactionId
+                ? `PHONEPE:${routerResult.phonePeTransactionId}`
+                : routerResult.razorpayOrderId || undefined,
+              trackingUrl: paymentUrl,
+            },
+            include: { items: true },
+          });
+        } catch (gwErr: any) {
+          // Payment gateway failed: release reservation & cancel pending order atomically
+          await prisma.$transaction(async (tx) => {
+            await tx.order.update({
+              where: { id: createdOrder.id },
+              data: { status: 'CANCELLED', cancelReason: 'Payment gateway initialization failed' },
+            });
+            if (createdOrder.reservationId) {
+              await tx.inventoryReservation.updateMany({
+                where: { id: createdOrder.reservationId, status: 'ACTIVE' },
+                data: { status: 'RELEASED' },
+              });
+              for (const it of createdOrder.items) {
+                await tx.$executeRaw`
+                  UPDATE "Product"
+                  SET reserved = GREATEST(0, reserved - ${it.quantity}), "updatedAt" = NOW()
+                  WHERE id = ${it.productId}::uuid AND "tenantId" = ${tenant.id}::uuid
+                `;
+              }
+            }
+          });
+          return reply.status(502).send({
+            error: `Payment gateway unavailable: ${gwErr.message}`,
+          });
+        }
+      }
+
+      // Clear checked out cart ONLY after order & payment link initialization succeed
       await CartService.clearCart(tenant.id, session.phone, channel);
 
-      // Auto-save address to CustomerAddress if new
       try {
-        if (deliveryAddress && deliveryAddress.line1 && deliveryAddress.pincode) {
+        if (deliveryAddress.line1 && deliveryAddress.pincode) {
           const existingAddr = await prisma.customerAddress.findFirst({
             where: {
               customerId: session.customerId,
@@ -435,8 +709,8 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
               data: {
                 customerId: session.customerId,
                 label: hasAnyDefault ? 'Delivery Address' : 'Home',
-                recipientName: deliveryAddress.recipientName || order.customerName || 'Customer',
-                phone: deliveryAddress.phone || order.customerPhone,
+                recipientName: deliveryAddress.recipientName,
+                phone: deliveryAddress.phone,
                 line1: deliveryAddress.line1,
                 line2: deliveryAddress.line2 || null,
                 landmark: deliveryAddress.landmark || null,
@@ -458,57 +732,70 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         console.warn('[Checkout] Failed to auto-save address:', err.message);
       }
 
-      // Send WhatsApp Order Created Receipt
       const waReceipt = `🛍️ *Order Confirmation: #${orderNumber}*\n\n` +
         `Thank you for ordering with *${tenant.name}*!\n\n` +
         `*Items:*\n` +
-        order.items.map((i) => `• ${i.productName} × ${i.quantity} (₹${i.totalAtOrder})`).join('\n') +
-        `\n\n*Total Amount:* ₹${order.total}\n` +
-        `*Delivery To:* ${deliveryAddress.line1}, ${deliveryAddress.city}\n\n` +
-        `You can review and modify your delivery details at any time on your private dashboard!`;
+        createdOrder.items.map((i: any) => `• ${i.productName} × ${i.quantity} (₹${i.totalAtOrder})`).join('\n') +
+        `\n\n*Total Amount:* ₹${createdOrder.total}\n` +
+        `*Delivery To:* ${deliveryAddress.line1}, ${deliveryAddress.city}\n` +
+        (paymentUrl ? `\n💳 *Complete Payment:* ${paymentUrl}\n` : '\n');
 
       await EvolutionService.sendTextMessage(tenant.whatsappInstanceName, session.phone, waReceipt);
 
       return reply.send({
         order: {
-          ...order,
-          subtotal: Number(order.subtotal),
-          total: Number(order.total),
+          ...createdOrder,
+          subtotal: Number(createdOrder.subtotal),
+          discount: Number(createdOrder.discount),
+          shippingCharge: Number(createdOrder.shippingCharge),
+          total: Number(createdOrder.total),
         },
+        paymentUrl,
         message: 'Order created successfully',
       });
     }
   );
 
   /**
-   * Public tracking endpoint for parcel recipients / website users.
-   * Can look up by AWB Tracking Number or Order Number without requiring login.
+   * Public tracking endpoint — strictly requires an active tenant slug!
    */
   server.get<{
     Params: { query: string };
     Headers: { 'x-tenant-slug'?: string };
+    Querystring: { tenantSlug?: string };
   }>('/api/v1/customer/track/:query', async (request, reply) => {
     const { query } = request.params;
-    const tenantSlug = (request.headers['x-tenant-slug'] as string) || 'aura';
+    const tenantSlug =
+      (request.headers['x-tenant-slug'] as string) ||
+      request.query?.tenantSlug;
 
-    let tenantId: string | undefined;
+    if (!tenantSlug) {
+      return reply.status(400).send({
+        error: 'BadRequest',
+        message: 'x-tenant-slug header or tenantSlug query parameter is required.',
+      });
+    }
+
+    let tenant;
     try {
-      const tenant = await CustomerAuthService.resolveTenant(tenantSlug);
-      tenantId = tenant.id;
+      tenant = await CustomerAuthService.resolveTenant(tenantSlug);
     } catch {
-      // Fallback if tenant resolution fails
+      return reply.status(404).send({
+        error: 'StoreNotFound',
+        message: 'Store not found or inactive.',
+      });
     }
 
     const trimmed = query.trim();
 
     const order = await prisma.order.findFirst({
       where: {
-        ...(tenantId ? { tenantId } : {}),
+        tenantId: tenant.id,
         OR: [
           { awbCode: trimmed },
           { trackingNumber: trimmed },
           { orderNumber: trimmed },
-          { id: trimmed.length === 36 ? trimmed : undefined },
+          ...(UUID_REGEX.test(trimmed) ? [{ id: trimmed }] : []),
         ],
       },
       include: {
@@ -530,17 +817,16 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
       });
     }
 
-    const delhiveryStatus = getDelhiveryLiveTrackingStatus(order, order.tenant?.slug || 'aura');
+    const delhiveryStatus = getDelhiveryLiveTrackingStatus(order, order.tenant?.slug || tenant.slug || '');
 
-    // Mask customer name for recipient privacy on public links
     const maskedName = order.customerName
       ? `${order.customerName.charAt(0)}***${order.customerName.slice(-1)}`
       : 'Customer';
 
     const deliveryAddress = (order.deliveryAddress as any) || {};
-    const city = deliveryAddress.city || delhiveryStatus.destination.city || 'Bengaluru';
-    const state = deliveryAddress.state || delhiveryStatus.destination.state || 'Karnataka';
-    const pincode = deliveryAddress.pincode ? `******${deliveryAddress.pincode.slice(-3)}` : '560***';
+    const city = deliveryAddress.city || delhiveryStatus.destination.city || '';
+    const state = deliveryAddress.state || delhiveryStatus.destination.state || '';
+    const pincode = deliveryAddress.pincode ? `******${deliveryAddress.pincode.slice(-3)}` : '***';
 
     return reply.send({
       shipment: {
@@ -569,12 +855,11 @@ export const customerOrdersRoutes: FastifyPluginAsync = async (server) => {
         itemCount: delhiveryStatus.items.length,
         trackingEvents: delhiveryStatus.milestones,
         store: {
-          name: order.tenant?.name || 'Aura Luxe Boutique',
-          slug: order.tenant?.slug || 'aura',
+          name: order.tenant?.name || tenant.name,
+          slug: order.tenant?.slug || tenant.slug || '',
           whatsappNumber: order.tenant?.whatsappPhoneNumber,
         },
       },
     });
   });
 };
-
