@@ -49,6 +49,9 @@ async function main() {
 
   const createdStaff: Record<string, any> = {};
 
+  // Pre-hashed 12-round bcrypt hash for dev seed password: "staff123"
+  const DEFAULT_STAFF_BCRYPT_HASH = '$2a$12$E3QiXImIMHU/bjo8qeOYW.rqPeI9m4OQYP0O7Ab5fgbelLiZ8xQMm';
+
   for (const s of staffMembers) {
     const staff = await prisma.staffUser.upsert({
       where: {
@@ -60,6 +63,7 @@ async function main() {
       update: {
         fullName: s.fullName,
         phone: s.phone,
+        passwordHash: DEFAULT_STAFF_BCRYPT_HASH,
         role: s.role,
         status: s.status,
         avatarUrl: s.avatarUrl,
@@ -70,7 +74,7 @@ async function main() {
         fullName: s.fullName,
         email: s.email,
         phone: s.phone,
-        passwordHash: '$2a$10$demoHashedPasswordStaffUser2026',
+        passwordHash: DEFAULT_STAFF_BCRYPT_HASH,
         role: s.role,
         status: s.status,
         avatarUrl: s.avatarUrl,
