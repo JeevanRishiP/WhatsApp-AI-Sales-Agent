@@ -46,6 +46,7 @@ interface StaffUserItem {
 interface TeamClientProps {
   team: StaffUserItem[];
   currentStaffId?: string;
+  canSimulateRoles?: boolean;
 }
 
 const ROLE_BADGES: Record<StaffRole, { label: string; color: string; bg: string; border: string; desc: string }> = {
@@ -79,7 +80,7 @@ const ROLE_BADGES: Record<StaffRole, { label: string; color: string; bg: string;
   },
 };
 
-export function TeamClient({ team, currentStaffId }: TeamClientProps) {
+export function TeamClient({ team, currentStaffId, canSimulateRoles = false }: TeamClientProps) {
   const [isPending, startTransition] = useTransition();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -107,14 +108,20 @@ export function TeamClient({ team, currentStaffId }: TeamClientProps) {
       if (res.error) {
         setInviteError(res.error);
       } else {
-        setInviteSuccess(res.message || 'Staff member invited successfully');
+        setInviteSuccess(
+          res.temporaryPassword
+            ? `${res.message} Temporary password: ${res.temporaryPassword}`
+            : res.message || 'Staff member invited successfully'
+        );
         setFullName('');
         setEmail('');
         setPhone('');
-        setTimeout(() => {
-          setShowInviteModal(false);
-          setInviteSuccess(null);
-        }, 1200);
+        if (!res.temporaryPassword) {
+          setTimeout(() => {
+            setShowInviteModal(false);
+            setInviteSuccess(null);
+          }, 1200);
+        }
       }
     });
   };
@@ -333,17 +340,23 @@ export function TeamClient({ team, currentStaffId }: TeamClientProps) {
                       </button>
                     </td>
 
-                    {/* Actions / Simulator */}
+                    {/* Actions / Simulator (dev opt-in only) */}
                     <td style={{ textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        disabled={isPending || isSelf}
-                        onClick={() => handleSimulate(member.id)}
-                        className="btn btn-secondary btn-sm"
-                      >
-                        <Eye size={12} />
-                        <span>{isSelf ? 'Current View' : 'Simulate View'}</span>
-                      </button>
+                      {canSimulateRoles ? (
+                        <button
+                          type="button"
+                          disabled={isPending || isSelf}
+                          onClick={() => handleSimulate(member.id)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <Eye size={12} />
+                          <span>{isSelf ? 'Current View' : 'Simulate View'}</span>
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {isSelf ? 'Current Session' : 'RBAC Enforced'}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

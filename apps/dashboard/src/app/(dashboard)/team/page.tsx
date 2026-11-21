@@ -12,6 +12,8 @@ export default async function TeamPage() {
   }
 
   const team = await listTeamMembers(session.tenantId);
+  const canSimulateRoles =
+    process.env.NODE_ENV === 'development' && process.env.ENABLE_DEMO_LOGIN === 'true';
 
   return (
     <div className="page-container">
@@ -28,12 +30,20 @@ export default async function TeamPage() {
 
       <TeamClient
         team={team.map((member) => ({
-          ...member,
+          id: member.id,
+          fullName: member.fullName,
+          email: member.email,
+          phone: member.phone,
+          role: member.role,
+          status: member.status,
+          avatarUrl: member.avatarUrl,
+          _count: member._count,
           createdAt: member.createdAt.toISOString(),
           lastLoginAt: member.lastLoginAt ? member.lastLoginAt.toISOString() : null,
           lastActiveAt: member.lastActiveAt ? member.lastActiveAt.toISOString() : null,
         }))}
         currentStaffId={session.staffId}
+        canSimulateRoles={canSimulateRoles}
       />
     </div>
   );
