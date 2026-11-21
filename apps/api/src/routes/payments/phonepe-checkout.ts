@@ -2,6 +2,15 @@ import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { notifyOrderPaymentConfirmed } from '../../services/payment-notifications.js';
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * PhonePe Sandbox Checkout Simulator
  *
@@ -61,11 +70,19 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
         .map(
           (it) => `
           <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #1e3a5f;font-size:0.875rem;">
-            <span>${it.productName} <strong style="color:#93c5fd;">x${it.quantity}</strong></span>
+            <span>${escapeHtml(it.productName)} <strong style="color:#93c5fd;">x${it.quantity}</strong></span>
             <span style="font-weight:600;">₹${Number(it.totalAtOrder).toFixed(2)}</span>
           </div>`
         )
         .join('');
+
+      const safeOrderNumber = escapeHtml(order.orderNumber);
+      const safeTenantName = escapeHtml(order.tenant.name);
+      const safeTxn = escapeHtml(txn);
+      const safeCustomerPhone = escapeHtml(order.customerPhone);
+      const safePaymentRef = escapeHtml(
+        order.razorpayPaymentId || 'PHONEPE_TXN_' + order.id.slice(0, 8)
+      );
 
       const html = `
         <!DOCTYPE html>
@@ -73,7 +90,7 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>PhonePe Sandbox — ${order.orderNumber}</title>
+            <title>PhonePe Sandbox — ${safeOrderNumber}</title>
             <style>
               * { box-sizing: border-box; }
               body {
@@ -216,9 +233,9 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
               <div class="content">
                 <div class="merchant-row">
                   <div>
-                    <div class="merchant-name">${order.tenant.name}</div>
-                    <div class="order-ref">Order #${order.orderNumber}</div>
-                    ${txn ? `<div class="order-ref">Txn: ${txn}</div>` : ''}
+                    <div class="merchant-name">${safeTenantName}</div>
+                    <div class="order-ref">Order #${safeOrderNumber}</div>
+                    ${safeTxn ? `<div class="order-ref">Txn: ${safeTxn}</div>` : ''}
                   </div>
                   <div>
                     <div class="amount-label">Amount Payable</div>
@@ -241,10 +258,10 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
                         <div class="paid-icon">🎉</div>
                         <h2 style="color:#4ade80;margin:0 0 8px;font-size:1.125rem;">Payment Already Confirmed</h2>
                         <p style="color:#94a3b8;font-size:0.875rem;">
-                          Reference: <code style="color:#a78bfa;">${order.razorpayPaymentId || 'PHONEPE_TXN_' + order.id.slice(0, 8)}</code>
+                          Reference: <code style="color:#a78bfa;">${safePaymentRef}</code>
                         </p>
                         <p style="color:#64748b;font-size:0.8125rem;margin-top:8px;">
-                          WhatsApp confirmation sent to <strong>${order.customerPhone}</strong>
+                          WhatsApp confirmation sent to <strong>${safeCustomerPhone}</strong>
                         </p>
                       </div>`
                     : `<div id="payment-actions">
@@ -282,6 +299,11 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
             </div>
 
             <script>
+              function esc(s) {
+                return String(s ?? '').replace(/[&<>"']/g, function(c) {
+                  return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+                });
+              }
               async function simulatePayment(method) {
                 const actionsEl = document.getElementById('payment-actions');
                 const statusEl = document.getElementById('status-container');
@@ -290,7 +312,7 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
                 if (statusEl) statusEl.style.display = 'block';
 
                 try {
-                  const res = await fetch('/payments/checkout/phonepe/${order.id}/simulate', {
+                  const res = await fetch('/payments/checkout/phonepe/${encodeURIComponent(order.id)}/simulate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ method }),
@@ -302,11 +324,11 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
                       <div style="font-size:3rem;margin-bottom:8px;">✅</div>
                       <h2 style="color:#4ade80;margin:0 0 8px;font-size:1.25rem;">Payment Successful!</h2>
                       <p style="color:#94a3b8;font-size:0.875rem;margin-bottom:10px;">
-                        Transaction ID: <strong style="color:#a78bfa;">\${data.transactionId}</strong>
+                        Transaction ID: <strong style="color:#a78bfa;">\${esc(data.transactionId)}</strong>
                       </p>
                       <p style="color:#64748b;font-size:0.8125rem;">
-                        Order #${order.orderNumber} is now <strong>PAYMENT_CONFIRMED</strong>.<br/>
-                        WhatsApp confirmation sent to ${order.customerPhone}! ✨
+                        Order #${safeOrderNumber} is now <strong>PAYMENT_CONFIRMED</strong>.<br/>
+                        WhatsApp confirmation sent to ${safeCustomerPhone}! ✨
                       </p>
                     \`;
                   } else {
@@ -314,7 +336,7 @@ export const phonePeCheckoutRoutes: FastifyPluginAsync = async (fastify) => {
                       <div style="font-size:3rem;margin-bottom:8px;">❌</div>
                       <h2 style="color:#ef4444;margin:0 0 8px;font-size:1.25rem;">Payment Failed (Simulated)</h2>
                       <p style="color:#94a3b8;font-size:0.875rem;margin-bottom:16px;">
-                        \${data.error || 'Payment declined. Please try again.'}
+                        \${esc(data.error || 'Payment declined. Please try again.')}
                       </p>
                       <button class="btn-action btn-phonepe" onclick="window.location.reload()">Try Again</button>
                     \`;
