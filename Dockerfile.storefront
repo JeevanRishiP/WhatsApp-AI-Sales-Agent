@@ -1,0 +1,46 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+
+COPY apps/api/package.json ./apps/api/
+COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/storefront/package.json ./apps/storefront/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/ai/package.json ./packages/ai/
+COPY packages/crypto/package.json ./packages/crypto/
+COPY packages/db/package.json ./packages/db/
+COPY packages/payments/package.json ./packages/payments/
+COPY packages/queue/package.json ./packages/queue/
+COPY packages/types/package.json ./packages/types/
+
+RUN pnpm install --frozen-lockfile
+
+COPY apps/storefront ./apps/storefront
+COPY packages ./packages
+
+RUN pnpm db:generate
+RUN pnpm --filter @wcos/storefront... build
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3005
+ENV HOSTNAME=0.0.0.0
+
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+
+COPY --from=builder --chown=node:node /app ./
+
+USER node
+EXPOSE 3005
+
+HEALTHCHECK --interval=20s --timeout=5s --start-period=25s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3005/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
+
+CMD ["pnpm", "--filter", "@wcos/storefront", "start"]
+
