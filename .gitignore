@@ -28,6 +28,7 @@ Thumbs.db
 # Prisma
 packages/db/prisma/*.db
 packages/db/prisma/migrations/*.sql.bak
+packages/db/src/generated/
 
 # Docker
 docker-compose.override.yml
