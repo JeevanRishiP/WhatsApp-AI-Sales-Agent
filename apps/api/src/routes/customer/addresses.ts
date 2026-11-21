@@ -2,6 +2,50 @@ import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { requireCustomerAuth } from '../../middleware/customer-auth.js';
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function syncSavedAddressToMemory(
+  tenantId: string,
+  customerPhone: string,
+  address: {
+    recipientName: string;
+    phone: string;
+    line1: string;
+    line2: string | null;
+    landmark: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+  } | null
+) {
+  const customerMem = await prisma.customerMemory.findFirst({
+    where: { tenantId, customerPhone },
+  });
+  if (!customerMem) return;
+
+  const pref = { ...((customerMem.preferredAttributes as Record<string, any>) || {}) };
+  if (address) {
+    pref['savedAddress'] = {
+      name: address.recipientName,
+      phone: address.phone,
+      line1: address.line1,
+      line2: address.line2 || '',
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    };
+  } else {
+    delete pref['savedAddress'];
+  }
+
+  await prisma.customerMemory.update({
+    where: { id: customerMem.id },
+    data: { preferredAttributes: pref },
+  });
+}
+
 export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
   /**
    * GET /api/v1/customer/addresses
@@ -89,35 +133,7 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
           where: { id: session.customerId },
           data: { defaultAddressId: address.id },
         });
-
-        // Also sync to customer memory for AI concierge
-        const customerMem = await prisma.customerMemory.findFirst({
-          where: {
-            tenantId: session.tenantId,
-            customerPhone: session.phone,
-          },
-        });
-        if (customerMem) {
-          const pref = (customerMem.preferredAttributes as Record<string, any>) || {};
-          await prisma.customerMemory.update({
-            where: { id: customerMem.id },
-            data: {
-              preferredAttributes: {
-                ...pref,
-                savedAddress: {
-                  name: address.recipientName,
-                  phone: address.phone,
-                  line1: address.line1,
-                  line2: address.line2 || '',
-                  landmark: address.landmark || '',
-                  city: address.city,
-                  state: address.state,
-                  pincode: address.pincode,
-                },
-              },
-            },
-          });
-        }
+        await syncSavedAddressToMemory(session.tenantId, session.phone, address);
       }
 
       // Audit log
@@ -169,6 +185,9 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const session = request.customerSession!;
       const { id } = request.params;
+      if (!UUID_REGEX.test(id)) {
+        return reply.status(400).send({ error: 'Invalid address ID' });
+      }
       const data = request.body;
 
       const existing = await prisma.customerAddress.findFirst({
@@ -208,6 +227,9 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
           data: { defaultAddressId: updated.id },
         });
       }
+      if (updated.isDefault) {
+        await syncSavedAddressToMemory(session.tenantId, session.phone, updated);
+      }
 
       return reply.send({
         address: updated,
@@ -229,6 +251,9 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const session = request.customerSession!;
       const { id } = request.params;
+      if (!UUID_REGEX.test(id)) {
+        return reply.status(400).send({ error: 'Invalid address ID' });
+      }
 
       const existing = await prisma.customerAddress.findFirst({
         where: { id, customerId: session.customerId },
@@ -242,7 +267,7 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
         where: { id },
       });
 
-      // If deleted was default, promote newest address to default
+      // If deleted was default, promote newest address to default and keep CustomerMemory synced
       if (existing.isDefault) {
         const nextDefault = await prisma.customerAddress.findFirst({
           where: { customerId: session.customerId },
@@ -258,11 +283,13 @@ export const customerAddressesRoutes: FastifyPluginAsync = async (server) => {
             where: { id: session.customerId },
             data: { defaultAddressId: nextDefault.id },
           });
+          await syncSavedAddressToMemory(session.tenantId, session.phone, nextDefault);
         } else {
           await prisma.customer.update({
             where: { id: session.customerId },
             data: { defaultAddressId: null },
           });
+          await syncSavedAddressToMemory(session.tenantId, session.phone, null);
         }
       }
 
