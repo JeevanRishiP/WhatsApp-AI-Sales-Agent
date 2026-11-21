@@ -9,11 +9,13 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId } from '../auth';
+import { getSession, hasRole } from '../auth';
 import { resolveHandoff, reopenConversation } from '../dal/conversations';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
 import { sendWhatsAppTextMessage } from '../whatsapp';
+
+const CONVERSATION_ROLES = ['OWNER', 'STORE_MANAGER', 'SUPPORT_CONCIERGE'] as const;
 
 export interface ConversationActionState {
   error?: string;
@@ -24,7 +26,11 @@ export async function resolveHandoffAction(
   conversationId: string,
   assignedTo?: string
 ): Promise<ConversationActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, CONVERSATION_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     await resolveHandoff(tenantId, conversationId, assignedTo);
@@ -39,7 +45,11 @@ export async function resolveHandoffAction(
 export async function reopenConversationAction(
   conversationId: string
 ): Promise<ConversationActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, CONVERSATION_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   try {
     await reopenConversation(tenantId, conversationId);
@@ -59,7 +69,11 @@ export async function sendAgentReplyAction(
   conversationId: string,
   formData: FormData
 ): Promise<ConversationActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, CONVERSATION_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   const parsed = ReplySchema.safeParse({
     message: formData.get('message'),

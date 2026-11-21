@@ -9,11 +9,13 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId, getSession } from '../auth';
+import { getSession, hasRole } from '../auth';
 import { updateCustomerDetails } from '../dal/customers';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
 import { sendWhatsAppTextMessage } from '../whatsapp';
+
+const CUSTOMER_MANAGE_ROLES = ['OWNER', 'STORE_MANAGER', 'SUPPORT_CONCIERGE'] as const;
 
 export interface CustomerActionState {
   error?: string;
@@ -38,6 +40,9 @@ export async function updateCustomerProfileAction(
   formData: FormData
 ): Promise<CustomerActionState> {
   const session = await getSession();
+  if (!hasRole(session, CUSTOMER_MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
 
   const rawData = {
     customerId: formData.get('customerId') as string,
@@ -131,7 +136,11 @@ export async function sendCustomerDirectMessageAction(
   prevState: CustomerActionState,
   formData: FormData
 ): Promise<CustomerActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, CUSTOMER_MANAGE_ROLES)) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
+  const tenantId = session.tenantId;
 
   const parsed = SendMessageSchema.safeParse({
     customerPhone: formData.get('customerPhone') as string,
