@@ -171,10 +171,16 @@ export async function buildConversationContext(
     }
   }
 
-  // 6C. Query matching products across the full database
+  // 6C. Query matching products across the full database using indexed normalized SKU + keyword search
+  const normalizedQueryCode = (currentMessageText || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const orConditions: any[] = [];
+  if (normalizedQueryCode.length >= 4 && normalizedQueryCode.length <= 24) {
+    orConditions.push({ codeNormalized: normalizedQueryCode });
+  }
   for (const kw of meaningfulKeywords) {
+    const cleanKw = kw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     orConditions.push(
+      ...(cleanKw.length >= 3 ? [{ codeNormalized: { contains: cleanKw } }] : []),
       { name: { contains: kw, mode: 'insensitive' } },
       { subcategory: { contains: kw, mode: 'insensitive' } },
       { description: { contains: kw, mode: 'insensitive' } },
@@ -216,19 +222,19 @@ export async function buildConversationContext(
     catalogContext += sortedProducts
       .map(
         (p) =>
-          `- [Code: ${p.code}] *${p.name}* | Subcategory: ${p.subcategory || 'Sarees'} | Price: ₹${Number(p.salePrice || p.price)} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'OUT OF STOCK'}${shownProductCodes.has(p.code.toUpperCase()) ? ' (ALREADY SHOWN TO CUSTOMER)' : ' (NEW/UNSHOWN)'}\n  ${p.description || ''}`
+          `- [Code: ${p.code}] *${p.name}* | Subcategory: ${p.subcategory || p.category || 'Catalog'} | Price: ₹${Number(p.salePrice || p.price)} | Stock: ${p.stock > 0 ? `${p.stock} available` : 'OUT OF STOCK'}${shownProductCodes.has(p.code.toUpperCase()) ? ' (ALREADY SHOWN TO CUSTOMER)' : ' (NEW/UNSHOWN)'}\n  ${p.description || ''}`
       )
       .join('\n');
   }
 
-  // Append full boutique collection directory so the agent uses the complete database
+  // Append full store collection directory so the agent uses the complete database
   if (availableSubcategories.length > 0) {
     const collectionsList = availableSubcategories
       .filter((s) => s.subcategory)
-      .map((s) => `• *${s.subcategory}* (${s._count.code} designs, ₹${Number(s._min.price)} - ₹${Number(s._max.price)})`)
+      .map((s) => `• *${s.subcategory}* (${s._count.code} items, ₹${Number(s._min.price)} - ₹${Number(s._max.price)})`)
       .join('\n');
 
-    catalogContext += `\n\nALL AVAILABLE STORE COLLECTIONS IN DATABASE:\n${collectionsList}\n(Full database contains 60+ handcrafted sarees across Banarasi, Kanjeevaram, Paithani, Linen, Organza, Patola, Chanderi, Jamdani, Tussar, and Maheshwari).`;
+    catalogContext += `\n\nALL AVAILABLE STORE COLLECTIONS IN DATABASE:\n${collectionsList}`;
   }
 
   // 7. Check for previous order delivery details & customer memory address
@@ -331,9 +337,10 @@ export async function buildConversationContext(
       }
     : undefined;
 
-  // 9. Calculate Bill Breakdown
-  const FREE_SHIPPING_THRESHOLD = 1999;
-  const STANDARD_SHIPPING = 99;
+  // 9. Calculate Bill Breakdown from tenant storePolicies
+  const policies = (tenant.storePolicies as Record<string, any>) || {};
+  const FREE_SHIPPING_THRESHOLD = Number(policies['freeShippingThreshold'] ?? 1999);
+  const STANDARD_SHIPPING = Number(policies['shippingFee'] ?? 99);
   const totalMrp = cart.items.reduce(
     (sum, item) => sum + ((item as any).mrp || item.price) * item.quantity,
     0
@@ -345,8 +352,17 @@ export async function buildConversationContext(
 
   // 10. Format PromptContext
   const persona = (tenant.persona as Record<string, any>) || {};
+  const aiPersona = ((tenant.aiConfig as Record<string, any>)?.['persona'] as Record<string, any>) || {};
+  const agentName =
+    String(
+      persona['botName'] ||
+        persona['agentName'] ||
+        aiPersona['botName'] ||
+        aiPersona['agentName'] ||
+        ''
+    ).trim() || 'Store Concierge';
   const promptContext: PromptContext = {
-    agentName: persona['agentName'] || 'Meera',
+    agentName,
     storeName: tenant.name,
     currency: 'INR',
     currentStage: (conversation.stage as any) || 'GREETING',
