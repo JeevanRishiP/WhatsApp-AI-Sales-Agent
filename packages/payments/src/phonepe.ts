@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { timingSafeCompare } from '@wcos/crypto';
 import type { CreatePaymentLinkOptions } from './types.js';
 
 export interface PhonePeConfig {
@@ -57,8 +58,12 @@ export function normalizePaymentUrl(
   fallback?: { orderId: string; amount?: number; orderNumber?: string; tenantId: string }
 ): string {
   const base = getAppBaseUrl();
+  const simulatorEnabled =
+    process.env['NODE_ENV'] !== 'production' &&
+    process.env['ENABLE_PAYMENT_SIMULATOR'] === 'true';
+
   if (!rawUrl) {
-    if (fallback) {
+    if (fallback && simulatorEnabled) {
       return `${base}/payments/checkout/phonepe/${fallback.orderId}?amount=${fallback.amount || 0}&ref=${fallback.orderNumber || ''}&tenantId=${fallback.tenantId}`;
     }
     return '';
@@ -66,7 +71,11 @@ export function normalizePaymentUrl(
 
   try {
     const url = new URL(rawUrl);
-    return `${base}${url.pathname}${url.search}`;
+    // Preserve external payment gateway domains (Razorpay rzp.io, PhonePe mercury, etc.)
+    if (url.pathname.startsWith('/payments/checkout')) {
+      return `${base}${url.pathname}${url.search}`;
+    }
+    return rawUrl;
   } catch {
     if (rawUrl.startsWith('/')) {
       return `${base}${rawUrl}`;
@@ -127,6 +136,14 @@ export class PhonePeService {
     );
   }
 
+  private isSimulatorAllowed(): boolean {
+    return (
+      process.env['NODE_ENV'] !== 'production' &&
+      process.env['ENABLE_PAYMENT_SIMULATOR'] === 'true' &&
+      this.isPlaceholderKey()
+    );
+  }
+
   /**
    * Computes the X-VERIFY checksum used by PhonePe:
    * SHA256(base64EncodedPayload + apiEndpoint + saltKey) + "###" + saltIndex
@@ -138,14 +155,14 @@ export class PhonePeService {
   }
 
   /**
-   * Verifies PhonePe webhook callback checksum.
+   * Verifies PhonePe webhook callback checksum using timing-safe comparison.
    * Webhook payload: base64(json) — verify SHA256(base64Payload + saltKey) + "###" + saltIndex
    */
   verifyWebhookChecksum(base64Response: string, receivedChecksum: string): boolean {
     const raw = `${base64Response}${this.saltKey}`;
     const sha256 = createHash('sha256').update(raw).digest('hex');
     const expected = `${sha256}###${this.saltIndex}`;
-    return expected === receivedChecksum;
+    return timingSafeCompare(expected, receivedChecksum);
   }
 
   /**
@@ -169,8 +186,11 @@ export class PhonePeService {
     const redirectUrl = `${callbackBase}?transactionId=${transactionId}&orderId=${options.orderId}&tenantId=${options.tenantId}`;
     const webhookCallbackUrl = options.callbackUrl || `${appBaseUrl}/webhooks/phonepe/${options.tenantId}`;
 
-    // If using placeholder keys, skip network and use local simulator
+    // Skip network only when simulator is explicitly opted into in non-production
     if (this.isPlaceholderKey()) {
+      if (!this.isSimulatorAllowed()) {
+        throw new Error('PhonePe merchant credentials must be configured (simulator disabled)');
+      }
       const simulatorUrl = `${appBaseUrl}/payments/checkout/phonepe/${options.orderId}?amount=${options.amount}&ref=${options.orderNumber}&tenantId=${options.tenantId}&txn=${transactionId}`;
       return {
         transactionId,
@@ -200,46 +220,34 @@ export class PhonePeService {
     const endpoint = '/pg/v1/pay';
     const checksum = this.computeChecksum(base64Payload, endpoint);
 
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-VERIFY': checksum,
-        },
-        body: JSON.stringify({ request: base64Payload }),
-      });
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-VERIFY': checksum,
+      },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ request: base64Payload }),
+    });
 
-      if (response.ok) {
-        const data: any = await response.json();
-        if (data.success && data.data?.instrumentResponse?.redirectInfo?.url) {
-          return {
-            transactionId,
-            redirectUrl: data.data.instrumentResponse.redirectInfo.url,
-            amount: amountInPaise,
-            currency: options.currency || 'INR',
-            isSandboxMock: false,
-          };
-        }
-        console.warn(`[PhonePeService] API returned success=false: ${JSON.stringify(data)}`);
-      } else {
-        const errText = await response.text();
-        console.warn(`[PhonePeService] createPaymentLink HTTP ${response.status}: ${errText}`);
-      }
-    } catch (networkErr: any) {
-      console.warn(`[PhonePeService] createPaymentLink network error: ${networkErr.message}`);
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`[PhonePeService] createPaymentLink HTTP ${response.status}: ${errText}`);
+      throw new Error(`PhonePe Pay API returned HTTP ${response.status}`);
     }
 
-    // Fallback to local sandbox simulator when UAT API is unreachable
-    console.log('[PhonePeService] Falling back to local sandbox simulator');
-    const simulatorUrl = `${appBaseUrl}/payments/checkout/phonepe/${options.orderId}?amount=${options.amount}&ref=${options.orderNumber}&tenantId=${options.tenantId}&txn=${transactionId}`;
-    return {
-      transactionId,
-      redirectUrl: simulatorUrl,
-      amount: amountInPaise,
-      currency: options.currency || 'INR',
-      isSandboxMock: true,
-    };
+    const data: any = await response.json();
+    if (data.success && data.data?.instrumentResponse?.redirectInfo?.url) {
+      return {
+        transactionId,
+        redirectUrl: data.data.instrumentResponse.redirectInfo.url,
+        amount: amountInPaise,
+        currency: options.currency || 'INR',
+        isSandboxMock: false,
+      };
+    }
+
+    throw new Error(`PhonePe Pay API failed: ${data.message || data.code || 'Missing redirect URL'}`);
   }
 
   /**

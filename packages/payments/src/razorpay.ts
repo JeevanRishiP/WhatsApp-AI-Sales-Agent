@@ -48,6 +48,14 @@ export class RazorpayService {
     );
   }
 
+  private isSimulatorAllowed(): boolean {
+    return (
+      process.env['NODE_ENV'] !== 'production' &&
+      process.env['ENABLE_PAYMENT_SIMULATOR'] === 'true' &&
+      this.isPlaceholderKey()
+    );
+  }
+
   private getAuthHeader(): string {
     const credentials = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
     return `Basic ${credentials}`;
@@ -60,6 +68,9 @@ export class RazorpayService {
     const amountInPaise = Math.round(options.amount * 100);
 
     if (this.isPlaceholderKey()) {
+      if (!this.isSimulatorAllowed()) {
+        throw new Error('Razorpay credentials are not configured for this environment');
+      }
       const mockOrderId = `order_test_${Date.now().toString(36)}`;
       return {
         id: mockOrderId,
@@ -76,48 +87,28 @@ export class RazorpayService {
       };
     }
 
-    try {
-      const response = await fetch(`${this.baseUrl}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: this.getAuthHeader(),
-        },
-        body: JSON.stringify({
-          amount: amountInPaise,
-          currency: options.currency || 'INR',
-          receipt: options.receipt,
-          notes: options.notes || {},
-        }),
-      });
+    const response = await fetch(`${this.baseUrl}/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: this.getAuthHeader(),
+      },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        amount: amountInPaise,
+        currency: options.currency || 'INR',
+        receipt: options.receipt,
+        notes: options.notes || {},
+      }),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn(`[RazorpayService] createOrder failed (${response.status}): ${errorText}`);
-        throw new Error(`Razorpay API Error: ${response.statusText}`);
-      }
-
-      return (await response.json()) as RazorpayOrderResult;
-    } catch (err: any) {
-      if (this.isSandbox) {
-        // Fallback to sandbox mock order so flow never breaks in dev
-        console.log('[RazorpayService] Sandbox fallback: using simulated order result');
-        return {
-          id: `order_test_${Date.now().toString(36)}`,
-          entity: 'order',
-          amount: amountInPaise,
-          amount_paid: 0,
-          amount_due: amountInPaise,
-          currency: options.currency || 'INR',
-          receipt: options.receipt,
-          status: 'created',
-          attempts: 0,
-          notes: options.notes || {},
-          created_at: Math.floor(Date.now() / 1000),
-        };
-      }
-      throw err;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`[RazorpayService] createOrder failed (${response.status}): ${errorText}`);
+      throw new Error(`Razorpay API Error: ${response.status} ${response.statusText}`);
     }
+
+    return (await response.json()) as RazorpayOrderResult;
   }
 
   /**
@@ -161,38 +152,40 @@ export class RazorpayService {
     };
 
     if (!this.isPlaceholderKey()) {
-      try {
-        const response = await fetch(`${this.baseUrl}/payment_links`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: this.getAuthHeader(),
-          },
-          body: JSON.stringify(payload),
-        });
+      const response = await fetch(`${this.baseUrl}/payment_links`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: this.getAuthHeader(),
+        },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify(payload),
+      });
 
-        if (response.ok) {
-          const data: any = await response.json();
-          return {
-            id: data.id,
-            short_url: data.short_url,
-            order_id: data.order_id,
-            amount: data.amount,
-            amount_paid: data.amount_paid || 0,
-            currency: data.currency,
-            status: data.status,
-            isSandboxMock: false,
-          };
-        } else {
-          const errorBody = await response.text();
-          console.warn(`[RazorpayService] createPaymentLink HTTP ${response.status}: ${errorBody}`);
-        }
-      } catch (networkErr: any) {
-        console.warn(`[RazorpayService] createPaymentLink network error: ${networkErr.message}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.warn(`[RazorpayService] createPaymentLink HTTP ${response.status}: ${errorBody}`);
+        throw new Error(`Razorpay Payment Link API error (${response.status})`);
       }
+
+      const data: any = await response.json();
+      return {
+        id: data.id,
+        short_url: data.short_url,
+        order_id: data.order_id,
+        amount: data.amount,
+        amount_paid: data.amount_paid || 0,
+        currency: data.currency,
+        status: data.status,
+        isSandboxMock: false,
+      };
     }
 
-    // Deterministic Sandbox Payment Simulator URL for local / test environments
+    if (!this.isSimulatorAllowed()) {
+      throw new Error('Razorpay live credentials must be configured (simulator disabled)');
+    }
+
+    // Explicit opt-in dev simulator ONLY when placeholder keys are in non-production
     const mockLinkId = `plink_test_${Date.now().toString(36)}`;
     const mockOrderId = `order_test_${Date.now().toString(36)}`;
     const simulatorBaseUrl = getAppBaseUrl();
