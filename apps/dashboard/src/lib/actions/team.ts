@@ -6,17 +6,21 @@ import { createTeamMember, updateStaffRole, updateStaffStatus } from '@/lib/dal/
 import { prisma, type StaffStatus } from '@wcos/db';
 import { z } from 'zod';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface TeamActionState {
   error?: string;
   success?: boolean;
   message?: string;
+  temporaryPassword?: string;
 }
 
 const InviteMemberSchema = z.object({
   fullName: z.string().min(2, 'Full name is required').max(100),
   email: z.string().email('Valid email is required'),
   phone: z.string().optional(),
-  role: z.enum(['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD', 'SUPPORT_CONCIERGE']),
+  role: z.enum(['STORE_MANAGER', 'FULFILLMENT_LEAD', 'SUPPORT_CONCIERGE']),
+  password: z.string().min(8).max(128).optional(),
 });
 
 export async function inviteTeamMemberAction(
@@ -25,16 +29,17 @@ export async function inviteTeamMemberAction(
 ): Promise<TeamActionState> {
   const session = await getSession();
 
-  // Security check: Only Owner can invite team members
   if (session.role !== 'OWNER') {
     return { error: 'Access denied: Only the store Owner can invite or manage team members' };
   }
 
+  const rawPassword = formData.get('password');
   const parsed = InviteMemberSchema.safeParse({
     fullName: formData.get('fullName'),
     email: formData.get('email'),
     phone: formData.get('phone') || undefined,
     role: formData.get('role'),
+    password: typeof rawPassword === 'string' && rawPassword.trim() ? rawPassword.trim() : undefined,
   });
 
   if (!parsed.success) {
@@ -42,23 +47,24 @@ export async function inviteTeamMemberAction(
   }
 
   try {
+    const normalizedEmail = parsed.data.email.toLowerCase().trim();
     const existing = await prisma.staffUser.findFirst({
-      where: { tenantId: session.tenantId, email: parsed.data.email.toLowerCase().trim() },
+      where: { tenantId: session.tenantId, email: normalizedEmail },
     });
 
     if (existing) {
-      return { error: `A staff member with email ${parsed.data.email} already exists.` };
+      return { error: `A staff member with email ${normalizedEmail} already exists.` };
     }
 
-    const member = await createTeamMember({
+    const { member, temporaryPassword } = await createTeamMember({
       tenantId: session.tenantId,
       fullName: parsed.data.fullName,
-      email: parsed.data.email,
+      email: normalizedEmail,
       phone: parsed.data.phone,
       role: parsed.data.role as StaffRole,
+      password: parsed.data.password,
     });
 
-    // Record in audit log
     await prisma.dataRevisionLog.create({
       data: {
         tenantId: session.tenantId,
@@ -74,7 +80,11 @@ export async function inviteTeamMemberAction(
 
     revalidatePath('/team');
     revalidatePath('/audit');
-    return { success: true, message: `Invited ${member.fullName} successfully` };
+    return {
+      success: true,
+      message: `Invited ${member.fullName} successfully.`,
+      temporaryPassword,
+    };
   } catch (err: any) {
     return { error: err.message || 'Failed to create team member' };
   }
@@ -88,6 +98,12 @@ export async function updateStaffRoleAction(
 
   if (session.role !== 'OWNER') {
     return { error: 'Access denied: Only Owner can modify roles' };
+  }
+  if (!UUID_REGEX.test(staffId)) {
+    return { error: 'Invalid staff ID' };
+  }
+  if (session.staffId && staffId === session.staffId) {
+    return { error: 'You cannot modify your own role' };
   }
 
   try {
@@ -123,6 +139,12 @@ export async function updateStaffStatusAction(
   if (session.role !== 'OWNER') {
     return { error: 'Access denied: Only Owner can change staff status' };
   }
+  if (!UUID_REGEX.test(staffId)) {
+    return { error: 'Invalid staff ID' };
+  }
+  if (session.staffId && staffId === session.staffId) {
+    return { error: 'You cannot suspend or deactivate your own account' };
+  }
 
   try {
     const updated = await updateStaffStatus(session.tenantId, staffId, status);
@@ -149,19 +171,32 @@ export async function updateStaffStatusAction(
 }
 
 /**
- * Simulator Action: Switch active staff role for Pair Programming & Testing.
- * Allows switching between Owner, Store Manager, Fulfillment Lead, and Support Concierge.
+ * Strictly dev-only Role View Simulator (requires OWNER role + explicit env flag + tenantId match).
  */
 export async function switchActiveStaffAction(staffId: string): Promise<TeamActionState> {
+  if (process.env.NODE_ENV !== 'development' || process.env.ENABLE_DEMO_LOGIN !== 'true') {
+    return { error: 'Role simulation is disabled in this environment' };
+  }
+
   const session = await getSession();
+  if (session.role !== 'OWNER') {
+    return { error: 'Access denied: Only Owner can switch staff simulation view' };
+  }
+  if (!UUID_REGEX.test(staffId)) {
+    return { error: 'Invalid staff ID' };
+  }
 
   try {
-    const staff = await prisma.staffUser.findUnique({
-      where: { id: staffId },
+    const staff = await prisma.staffUser.findFirst({
+      where: {
+        id: staffId,
+        tenantId: session.tenantId,
+        status: 'ACTIVE',
+      },
     });
 
     if (!staff) {
-      return { error: 'Staff member not found' };
+      return { error: 'Active staff member not found in your store' };
     }
 
     await createSession({
@@ -183,4 +218,3 @@ export async function switchActiveStaffAction(staffId: string): Promise<TeamActi
     return { error: err.message || 'Failed to switch staff role' };
   }
 }
-

@@ -3,26 +3,28 @@
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  Server Actions — Authentication                              ║
 // ║                                                               ║
-// ║  Login, logout, and password management.                      ║
+// ║  Login, logout, and role-safe password management.            ║
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { redirect } from 'next/navigation';
-import { createSession, destroySession, getTenantId } from '@/lib/auth';
-import { verifyTenantCredentials, verifyApiKey, changePassword } from '@/lib/dal/settings';
+import { prisma } from '@wcos/db';
+import { createSession, destroySession, getSession } from '@/lib/auth';
+import {
+  verifyDashboardCredentials,
+  verifyApiKey,
+  changeUserPassword,
+} from '@/lib/dal/settings';
 import { z } from 'zod';
-
-// ─── Login Schema ─────────────────────────────────────────────────
 
 const PasswordLoginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
+  storeSlug: z.string().max(50).optional(),
 });
 
 const ApiKeyLoginSchema = z.object({
   apiKey: z.string().min(1, 'API key is required'),
 });
-
-// ─── Login Action ─────────────────────────────────────────────────
 
 export interface LoginState {
   error?: string;
@@ -49,15 +51,25 @@ export async function loginAction(
         return { error: 'Invalid API key' };
       }
 
+      const ownerStaff = await prisma.staffUser.findFirst({
+        where: { tenantId: tenant.id, role: 'OWNER', status: 'ACTIVE' },
+        select: { id: true, fullName: true, email: true, avatarUrl: true },
+      });
+
       await createSession({
         tenantId: tenant.id,
         tenantName: tenant.name,
-        email: tenant.ownerEmail,
+        email: ownerStaff?.email || tenant.ownerEmail,
+        staffId: ownerStaff?.id,
+        staffName: ownerStaff?.fullName || tenant.ownerName || 'Owner',
+        role: 'OWNER',
+        avatarUrl: ownerStaff?.avatarUrl || undefined,
       });
     } else {
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
-      const parsed = PasswordLoginSchema.safeParse({ email, password });
+      const storeSlug = (formData.get('storeSlug') as string) || undefined;
+      const parsed = PasswordLoginSchema.safeParse({ email, password, storeSlug });
 
       if (!parsed.success) {
         const errors = parsed.error.flatten().fieldErrors;
@@ -65,15 +77,23 @@ export async function loginAction(
         return { error: firstError || 'Invalid input' };
       }
 
-      const tenant = await verifyTenantCredentials(parsed.data.email, parsed.data.password);
-      if (!tenant) {
+      const verified = await verifyDashboardCredentials(
+        parsed.data.email,
+        parsed.data.password,
+        parsed.data.storeSlug
+      );
+      if (!verified) {
         return { error: 'Invalid email or password' };
       }
 
       await createSession({
-        tenantId: tenant.id,
-        tenantName: tenant.name,
-        email: tenant.ownerEmail,
+        tenantId: verified.tenantId,
+        tenantName: verified.tenantName,
+        email: verified.email,
+        staffId: verified.staffId,
+        staffName: verified.staffName,
+        role: verified.role,
+        avatarUrl: verified.avatarUrl,
       });
     }
 
@@ -83,23 +103,21 @@ export async function loginAction(
   }
 }
 
-// ─── Logout Action ────────────────────────────────────────────────
-
 export async function logoutAction(): Promise<void> {
   await destroySession();
   redirect('/login');
 }
 
-// ─── Change Password Action ──────────────────────────────────────
-
-const ChangePasswordSchema = z.object({
-  currentPassword: z.string().optional(),
-  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const ChangePasswordSchema = z
+  .object({
+    currentPassword: z.string().optional(),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 export interface ChangePasswordState {
   error?: string;
@@ -110,7 +128,7 @@ export async function changePasswordAction(
   _prev: ChangePasswordState,
   formData: FormData
 ): Promise<ChangePasswordState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
 
   const parsed = ChangePasswordSchema.safeParse({
     currentPassword: formData.get('currentPassword') || undefined,
@@ -124,11 +142,13 @@ export async function changePasswordAction(
   }
 
   try {
-    await changePassword(
-      tenantId,
-      parsed.data.currentPassword || null,
-      parsed.data.newPassword
-    );
+    await changeUserPassword({
+      tenantId: session.tenantId,
+      role: session.role,
+      staffId: session.staffId,
+      currentPassword: parsed.data.currentPassword || null,
+      newPassword: parsed.data.newPassword,
+    });
     return { success: true };
   } catch (err: any) {
     return { error: err.message || 'Failed to change password' };

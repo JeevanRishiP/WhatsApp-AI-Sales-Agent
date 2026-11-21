@@ -1,14 +1,13 @@
 'use server';
 
 // ╔═══════════════════════════════════════════════════════════════╗
-// ║  Server Actions — Settings                                    ║
+// ║  Server Actions — Settings & Tenant Vault (RBAC Protected)    ║
 // ║                                                               ║
-// ║  Profile and persona management.                              ║
-// ║  tenantId comes from session — never from user input.         ║
+// ║  tenantId and role ALWAYS come from verified JWT session.     ║
 // ╚═══════════════════════════════════════════════════════════════╝
 
 import { revalidatePath } from 'next/cache';
-import { getTenantId } from '@/lib/auth';
+import { getSession, hasRole } from '@/lib/auth';
 import {
   updateProfile,
   updatePersona,
@@ -16,6 +15,10 @@ import {
   updateWhatsAppSettings,
   toggleAiAgent,
   updateOfflineSettings,
+  updateTenantPaymentSecrets,
+  getDecryptedPaymentSecrets,
+  updateLegalBranding,
+  type MaskedPaymentSecrets,
 } from '@/lib/dal/settings';
 import { z } from 'zod';
 
@@ -24,12 +27,12 @@ export interface SettingsActionState {
   success?: boolean;
 }
 
-// ─── Update Profile ───────────────────────────────────────────────
+// ─── Update Profile (OWNER Only) ──────────────────────────────────
 
 const ProfileSchema = z.object({
   name: z.string().min(2, 'Business name must be at least 2 characters').max(100),
   ownerName: z.string().min(2).max(100),
-  ownerPhone: z.string().regex(/^\d{10,15}$/, 'Invalid phone number'),
+  ownerPhone: z.string().regex(/^\+?\d{10,15}$/, 'Invalid phone number'),
   ownerEmail: z.string().email('Invalid email'),
   businessCategory: z.string().max(50).optional(),
 });
@@ -38,7 +41,10 @@ export async function updateProfileAction(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return { error: 'Access denied: Only Store Owner can modify business profile' };
+  }
 
   const parsed = ProfileSchema.safeParse({
     name: formData.get('name'),
@@ -53,7 +59,7 @@ export async function updateProfileAction(
   }
 
   try {
-    await updateProfile(tenantId, parsed.data);
+    await updateProfile(session.tenantId, parsed.data);
   } catch (err: any) {
     return { error: err.message || 'Failed to update profile' };
   }
@@ -62,7 +68,117 @@ export async function updateProfileAction(
   return { success: true };
 }
 
-// ─── Update Persona ───────────────────────────────────────────────
+// ─── Update Legal / Invoice Branding (OWNER Only) ─────────────────
+
+const LegalBrandingSchema = z.object({
+  legalName: z.string().max(150).optional(),
+  gstin: z.string().max(30).optional(),
+  cin: z.string().max(40).optional(),
+  defaultHsn: z.string().max(20).optional(),
+  supportPhone: z.string().max(20).optional(),
+  warehouseLine1: z.string().max(200).optional(),
+  warehouseCity: z.string().max(100).optional(),
+  warehouseState: z.string().max(100).optional(),
+  warehousePincode: z.string().max(15).optional(),
+});
+
+export async function updateLegalBrandingAction(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return { error: 'Access denied: Only Store Owner can modify legal & GST settings' };
+  }
+
+  const parsed = LegalBrandingSchema.safeParse({
+    legalName: (formData.get('legalName') as string) || undefined,
+    gstin: (formData.get('gstin') as string) || undefined,
+    cin: (formData.get('cin') as string) || undefined,
+    defaultHsn: (formData.get('defaultHsn') as string) || undefined,
+    supportPhone: (formData.get('supportPhone') as string) || undefined,
+    warehouseLine1: (formData.get('warehouseLine1') as string) || undefined,
+    warehouseCity: (formData.get('warehouseCity') as string) || undefined,
+    warehouseState: (formData.get('warehouseState') as string) || undefined,
+    warehousePincode: (formData.get('warehousePincode') as string) || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message || 'Invalid input' };
+  }
+
+  try {
+    const d = parsed.data;
+    await updateLegalBranding(session.tenantId, {
+      legalName: d.legalName,
+      gstin: d.gstin,
+      cin: d.cin,
+      defaultHsn: d.defaultHsn,
+      supportPhone: d.supportPhone,
+      ...(d.warehouseLine1 && d.warehouseCity && d.warehouseState && d.warehousePincode
+        ? {
+            warehouseAddress: {
+              line1: d.warehouseLine1,
+              city: d.warehouseCity,
+              state: d.warehouseState,
+              pincode: d.warehousePincode,
+            },
+          }
+        : {}),
+    });
+  } catch (err: any) {
+    return { error: err.message || 'Failed to update legal branding' };
+  }
+
+  revalidatePath('/settings');
+  return { success: true };
+}
+
+// ─── Save Encrypted Payment Gateway Credentials (OWNER Only) ──────
+
+const PaymentSecretsSchema = z.object({
+  razorpayKeyId: z.string().max(120).optional(),
+  razorpayKeySecret: z.string().max(200).optional(),
+  razorpayWebhookSecret: z.string().max(200).optional(),
+  phonepeMerchantId: z.string().max(120).optional(),
+  phonepeSaltKey: z.string().max(200).optional(),
+  phonepeSaltIndex: z.coerce.number().int().min(1).max(20).optional(),
+  phonepeEnvironment: z.enum(['sandbox', 'production']).optional(),
+});
+
+export async function updatePaymentSecretsAction(
+  _prev: SettingsActionState & { masked?: MaskedPaymentSecrets },
+  formData: FormData
+): Promise<SettingsActionState & { masked?: MaskedPaymentSecrets }> {
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return { error: 'Access denied: Only Store Owner can modify gateway credentials' };
+  }
+
+  const parsed = PaymentSecretsSchema.safeParse({
+    razorpayKeyId: (formData.get('razorpayKeyId') as string) || undefined,
+    razorpayKeySecret: (formData.get('razorpayKeySecret') as string) || undefined,
+    razorpayWebhookSecret: (formData.get('razorpayWebhookSecret') as string) || undefined,
+    phonepeMerchantId: (formData.get('phonepeMerchantId') as string) || undefined,
+    phonepeSaltKey: (formData.get('phonepeSaltKey') as string) || undefined,
+    phonepeSaltIndex: formData.get('phonepeSaltIndex') || undefined,
+    phonepeEnvironment: (formData.get('phonepeEnvironment') as string) || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message || 'Invalid gateway credential input' };
+  }
+
+  try {
+    const masked = await updateTenantPaymentSecrets(session.tenantId, parsed.data);
+    revalidatePath('/settings');
+    return { success: true, masked };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to store encrypted payment credentials' };
+  }
+}
+
+// ─── Update Persona (OWNER / STORE_MANAGER) ──────────────────────
 
 const PersonaSchema = z.object({
   botName: z.string().max(50).default('Shopping Assistant'),
@@ -77,7 +193,10 @@ export async function updatePersonaAction(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
 
   const parsed = PersonaSchema.safeParse({
     botName: formData.get('botName'),
@@ -93,7 +212,7 @@ export async function updatePersonaAction(
   }
 
   try {
-    await updatePersona(tenantId, parsed.data);
+    await updatePersona(session.tenantId, parsed.data);
   } catch (err: any) {
     return { error: err.message || 'Failed to update persona' };
   }
@@ -102,7 +221,7 @@ export async function updatePersonaAction(
   return { success: true };
 }
 
-// ─── Test Razorpay Connection ────────────────────────────────────
+// ─── Test Razorpay & PhonePe Connections (OWNER Only) ────────────
 
 export async function testRazorpayConnectionAction(): Promise<{
   success: boolean;
@@ -111,25 +230,82 @@ export async function testRazorpayConnectionAction(): Promise<{
   keyId: string;
   isSandbox: boolean;
 }> {
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return {
+      success: false,
+      message: 'Access denied: Only Store Owner can test gateway connectivity',
+      keyId: '',
+      isSandbox: true,
+    };
+  }
+
   try {
-    const { razorpayService } = await import('@wcos/payments');
-    const result = await razorpayService.testConnection();
+    const { RazorpayService } = await import('@wcos/payments');
+    const tenantSecrets = await getDecryptedPaymentSecrets(session.tenantId);
+    const service = new RazorpayService(
+      tenantSecrets?.razorpayKeyId
+        ? {
+            keyId: tenantSecrets.razorpayKeyId,
+            keySecret: tenantSecrets.razorpayKeySecret,
+            webhookSecret: tenantSecrets.razorpayWebhookSecret,
+          }
+        : undefined
+    );
+    const result = await service.testConnection();
+    const rawKeyId = tenantSecrets?.razorpayKeyId || process.env['RAZORPAY_KEY_ID'] || '';
+    const maskedKey = rawKeyId ? `${rawKeyId.slice(0, 8)}••••` : 'not_configured';
     return {
       ...result,
-      keyId: process.env['RAZORPAY_KEY_ID'] || 'rzp_test_sample',
-      isSandbox: razorpayService.isSandbox,
+      keyId: maskedKey,
+      isSandbox: service.isSandbox,
     };
   } catch (err: any) {
     return {
       success: false,
       message: err.message || 'Failed to connect to Razorpay',
-      keyId: process.env['RAZORPAY_KEY_ID'] || 'rzp_test_sample',
+      keyId: 'error',
       isSandbox: true,
     };
   }
 }
 
-// ─── Update AI Config ────────────────────────────────────────────
+export async function testPhonePeConnectionAction(): Promise<{
+  success: boolean;
+  message: string;
+  details?: any;
+}> {
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return {
+      success: false,
+      message: 'Access denied: Only Store Owner can test gateway connectivity',
+    };
+  }
+
+  try {
+    const { PhonePeService } = await import('@wcos/payments');
+    const tenantSecrets = await getDecryptedPaymentSecrets(session.tenantId);
+    const service = new PhonePeService(
+      tenantSecrets?.phonepeMerchantId
+        ? {
+            merchantId: tenantSecrets.phonepeMerchantId,
+            saltKey: tenantSecrets.phonepeSaltKey,
+            saltIndex: tenantSecrets.phonepeSaltIndex,
+            environment: tenantSecrets.phonepeEnvironment,
+          }
+        : undefined
+    );
+    return await service.testConnection();
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Failed to connect to PhonePe',
+    };
+  }
+}
+
+// ─── Update AI Config (OWNER Only) ────────────────────────────────
 
 const AiModelEntrySchema = z.object({
   provider: z.enum(['google', 'openai', 'anthropic']),
@@ -145,7 +321,10 @@ export async function updateAiConfigAction(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return { error: 'Access denied: Only Store Owner can modify AI model routing' };
+  }
 
   let raw: unknown;
   try {
@@ -161,7 +340,7 @@ export async function updateAiConfigAction(
   }
 
   try {
-    await updateAiConfig(tenantId, parsed.data);
+    await updateAiConfig(session.tenantId, parsed.data);
   } catch (err: any) {
     return { error: err.message || 'Failed to save AI configuration' };
   }
@@ -170,7 +349,7 @@ export async function updateAiConfigAction(
   return { success: true };
 }
 
-// ─── Update WhatsApp Settings ─────────────────────────────────────
+// ─── Update WhatsApp Settings (OWNER Only) ────────────────────────
 
 const WhatsAppSettingsSchema = z.object({
   whatsappPhoneNumber: z.string().optional(),
@@ -181,7 +360,10 @@ export async function updateWhatsAppSettingsAction(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER'])) {
+    return { error: 'Access denied: Only Store Owner can modify WhatsApp connection settings' };
+  }
 
   const phone = formData.get('whatsappPhoneNumber');
   const instance = formData.get('whatsappInstanceName');
@@ -196,7 +378,7 @@ export async function updateWhatsAppSettingsAction(
   }
 
   try {
-    await updateWhatsAppSettings(tenantId, parsed.data);
+    await updateWhatsAppSettings(session.tenantId, parsed.data);
   } catch (err: any) {
     return { error: err.message || 'Failed to update WhatsApp settings' };
   }
@@ -205,15 +387,22 @@ export async function updateWhatsAppSettingsAction(
   return { success: true };
 }
 
-// ─── Toggle WhatsApp AI Sales Agent ────────────────────────────────
+// ─── Toggle WhatsApp AI Sales Agent (OWNER / STORE_MANAGER) ────────
 
 export async function toggleAiAgentAction(
   enabled: boolean
 ): Promise<{ success: boolean; aiAgentEnabled: boolean; error?: string }> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return {
+      success: false,
+      aiAgentEnabled: !enabled,
+      error: 'Access denied: Insufficient permissions',
+    };
+  }
 
   try {
-    const updated = await toggleAiAgent(tenantId, enabled);
+    const updated = await toggleAiAgent(session.tenantId, enabled);
     revalidatePath('/', 'layout');
     revalidatePath('/settings');
     revalidatePath('/conversations');
@@ -227,7 +416,7 @@ export async function toggleAiAgentAction(
   }
 }
 
-// ─── Update Offline Auto-Reply Settings ───────────────────────────
+// ─── Update Offline Auto-Reply Settings (OWNER / STORE_MANAGER) ───
 
 const OfflineSettingsSchema = z.object({
   aiAgentEnabled: z.boolean().optional(),
@@ -239,7 +428,10 @@ export async function updateOfflineSettingsAction(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
-  const tenantId = await getTenantId();
+  const session = await getSession();
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return { error: 'Access denied: Insufficient permissions' };
+  }
 
   const enabledRaw = formData.get('aiAgentEnabled');
   const aiAgentEnabled = enabledRaw !== null ? enabledRaw === 'true' || enabledRaw === 'on' : undefined;
@@ -257,7 +449,7 @@ export async function updateOfflineSettingsAction(
   }
 
   try {
-    await updateOfflineSettings(tenantId, parsed.data);
+    await updateOfflineSettings(session.tenantId, parsed.data);
     revalidatePath('/', 'layout');
     revalidatePath('/settings');
     revalidatePath('/conversations');
