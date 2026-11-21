@@ -11,63 +11,72 @@
 // ╚═══════════════════════════════════════════════════════════════╝
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider   = "postgresql"
-  url        = env("DATABASE_URL")
-  directUrl  = env("DIRECT_URL")
   extensions = [vector, pgcrypto]
 }
 
 // ─── Tenant ───────────────────────────────────────────────────
 
 model Tenant {
-  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                  String       @db.VarChar(100)
-  ownerName             String       @db.VarChar(100)
-  ownerPhone            String       @db.VarChar(15)
-  ownerEmail            String       @db.VarChar(255)
-  passwordHash          String?      @db.VarChar(255)
-  lastLoginAt           DateTime?
-  businessCategory      String?      @db.VarChar(50)
-  status                TenantStatus @default(ONBOARDING)
-  plan                  TenantPlan   @default(FREE)
-  apiKey                String       @unique @default(dbgenerated("gen_random_uuid()"))
-  whatsappPhoneNumber   String?      @db.VarChar(20)
-  whatsappInstanceName  String       @db.VarChar(50)
-  evolutionInstanceId   String?      @db.VarChar(100)
-  razorpayAccountId     String?      @db.VarChar(100)
-  slug                  String?      @unique @db.VarChar(50)
-  customDomain          String?      @unique @db.VarChar(100)
-  storefrontTheme       Json         @default("{\"primaryColor\":\"#0C0C0C\",\"accentColor\":\"#C5A880\",\"fontStyle\":\"serif\"}")
-  storePolicies         Json         @default("{\"allowAddressChangeUntil\":\"SHIPPED\",\"allowCancelUntil\":\"PROCESSING\"}")
-  persona               Json         @default("{}")
-  aiConfig              Json         @default("{}")
-  monthlyMessageCount   Int          @default(0)
-  monthlyMessageLimit   Int          @default(1000)
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  id                      String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                    String       @db.VarChar(100)
+  legalName               String?      @db.VarChar(150)
+  gstin                   String?      @db.VarChar(30)
+  cin                     String?      @db.VarChar(40)
+  warehouseAddress        Json?
+  defaultHsn              String?      @db.VarChar(20)
+  supportPhone            String?      @db.VarChar(20)
+  ownerName               String       @db.VarChar(100)
+  ownerPhone              String       @db.VarChar(15)
+  ownerEmail              String       @db.VarChar(255)
+  passwordHash            String?      @db.VarChar(255)
+  lastLoginAt             DateTime?
+  businessCategory        String?      @db.VarChar(50)
+  status                  TenantStatus @default(ONBOARDING)
+  plan                    TenantPlan   @default(FREE)
+  apiKey                  String       @unique @default(dbgenerated("gen_random_uuid()"))
+  whatsappPhoneNumber     String?      @unique @db.VarChar(20)
+  whatsappInstanceName    String       @unique @db.VarChar(50)
+  evolutionInstanceId     String?      @db.VarChar(100)
+  razorpayAccountId       String?      @db.VarChar(100)
+  paymentConfigEncrypted  String?      @db.Text
+  aiKeysEncrypted         String?      @db.Text
+  whatsappConfigEncrypted String?      @db.Text
+  slug                    String?      @unique @db.VarChar(50)
+  customDomain            String?      @unique @db.VarChar(100)
+  storefrontTheme         Json         @default("{\"primaryColor\":\"#0C0C0C\",\"accentColor\":\"#C5A880\",\"fontStyle\":\"serif\"}")
+  storePolicies           Json         @default("{\"allowAddressChangeUntil\":\"SHIPPED\",\"allowCancelUntil\":\"PROCESSING\",\"freeShippingThreshold\":1999,\"standardShippingFee\":99}")
+  persona                 Json         @default("{}")
+  aiConfig                Json         @default("{}")
+  monthlyMessageCount     Int          @default(0)
+  monthlyMessageLimit     Int          @default(1000)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 
   // Relations
-  products              Product[]
-  orders                Order[]
-  customers             Customer[]
-  conversations         Conversation[]
-  customerMemories      CustomerMemory[]
-  promptVersions        PromptVersion[]
-  auditLogs             AuditLog[]
-  outboxEvents          OutboxEvent[]
-  rawWebhookEvents      RawWebhookEvent[]
-  staffUsers            StaffUser[]
-  dataRevisionLogs      DataRevisionLog[]
-  orderInternalNotes    OrderInternalNote[]
+  products                Product[]
+  orders                  Order[]
+  customers               Customer[]
+  conversations           Conversation[]
+  customerMemories        CustomerMemory[]
+  promptVersions          PromptVersion[]
+  auditLogs               AuditLog[]
+  outboxEvents            OutboxEvent[]
+  rawWebhookEvents        RawWebhookEvent[]
+  staffUsers              StaffUser[]
+  dataRevisionLogs        DataRevisionLog[]
+  orderInternalNotes      OrderInternalNote[]
 
-  @@index([whatsappInstanceName])
-  @@index([whatsappPhoneNumber])
   @@index([status])
+  @@index([ownerEmail])
 }
 
 enum TenantStatus {
@@ -90,6 +99,7 @@ model Product {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId          String        @db.Uuid
   code              String        @db.VarChar(50)
+  codeNormalized    String?       @db.VarChar(50)
   name              String        @db.VarChar(200)
   description       String?       @db.Text
   category          String?       @db.VarChar(100)
@@ -118,6 +128,7 @@ model Product {
   orderItems        OrderItem[]
 
   @@unique([tenantId, code])
+  @@index([tenantId, codeNormalized])
   @@index([tenantId, status])
   @@index([tenantId, category])
   @@index([tenantId, price])
