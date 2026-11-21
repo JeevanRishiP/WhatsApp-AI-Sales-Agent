@@ -5,7 +5,7 @@ import path from 'node:path';
 // ╔═══════════════════════════════════════════════════════════════╗
 // ║  Direct Media Streaming Route Handler                         ║
 // ║  GET /api/media/products/[filename]                           ║
-// ║  Reliably streams uploaded product images from disk           ║
+// ║  Hardened against prefix-sibling traversal & SVG XSS          ║
 // ╚═══════════════════════════════════════════════════════════════╝
 
 export async function GET(
@@ -19,12 +19,12 @@ export async function GET(
   const baseDir = path.resolve(process.cwd(), 'public', 'uploads');
   const filePath = path.resolve(baseDir, ...params.path);
 
-  // Security: prevent path traversal attacks
-  if (!filePath.startsWith(baseDir)) {
+  // Enforce strict directory boundary with path.sep to prevent sibling-prefix bypass
+  if (!filePath.startsWith(baseDir + path.sep)) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     return new NextResponse('Image Not Found', { status: 404 });
   }
 
@@ -43,12 +43,17 @@ export async function GET(
   const fileStat = fs.statSync(filePath);
   const fileStream = fs.createReadStream(filePath);
 
-  return new NextResponse(fileStream as any, {
-    headers: {
-      'Content-Type': contentType,
-      'Content-Length': fileStat.size.toString(),
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
-  });
-}
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'Content-Length': fileStat.size.toString(),
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff',
+  };
 
+  // Sandbox SVGs to mitigate stored XSS execution if an SVG ever exists on disk
+  if (ext === '.svg') {
+    headers['Content-Security-Policy'] = "default-src 'none'; sandbox";
+  }
+
+  return new NextResponse(fileStream as any, { headers });
+}

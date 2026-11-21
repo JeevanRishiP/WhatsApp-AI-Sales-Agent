@@ -1,22 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession, hasRole } from '@/lib/auth';
 import { getProduct, updateProductImages } from '@/lib/dal/products';
-import fs from 'node:fs';
-import path from 'node:path';
+import { uploadProductMedia, deleteLocalProductMedia } from '@/lib/storage/media-storage';
 
 // ╔═══════════════════════════════════════════════════════════════╗
-// ║  Product Photos API Route                                     ║
-// ║  /api/inventory/[id]/photos                                    ║
+// ║  Product Photos API Route (RBAC + Durable R2/Local Adapter)   ║
+// ║  /api/inventory/[id]/photos                                   ║
 // ╚═══════════════════════════════════════════════════════════════╝
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isAllowedImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('/api/media/')) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -35,11 +46,16 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  if (!UUID_REGEX.test(params.id)) {
+    return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
   }
 
   const product = await getProduct(session.tenantId, params.id);
@@ -49,7 +65,6 @@ export async function POST(
 
   const contentType = req.headers.get('content-type') || '';
 
-  // 1. Multipart Form Upload (file from device)
   if (contentType.includes('multipart/form-data')) {
     try {
       const formData = await req.formData();
@@ -74,24 +89,21 @@ export async function POST(
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products');
-      await fs.promises.mkdir(uploadDir, { recursive: true });
+      const uploaded = await uploadProductMedia({
+        tenantId: session.tenantId,
+        productId: params.id,
+        buffer,
+        mimeType: file.type,
+        originalFilename: file.name,
+      });
 
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(ext) ? ext : 'jpg';
-      const uniqueId = Math.random().toString(36).substring(2, 9);
-      const filename = `item-${params.id.slice(0, 8)}-${Date.now()}-${uniqueId}.${safeExt}`;
-      const filePath = path.join(uploadDir, filename);
-
-      await fs.promises.writeFile(filePath, buffer);
-
-      const publicUrl = `/uploads/products/${filename}`;
-      const nextUrls = [...(product.imageUrls || []), publicUrl];
+      const nextUrls = [...(product.imageUrls || []), uploaded.url];
       const updated = await updateProductImages(session.tenantId, params.id, nextUrls);
 
       return NextResponse.json({
         success: true,
-        url: publicUrl,
+        url: uploaded.url,
+        storageProvider: uploaded.storageProvider,
         imageUrls: updated.imageUrls,
         thumbnailUrl: updated.thumbnailUrl,
       });
@@ -100,13 +112,12 @@ export async function POST(
     }
   }
 
-  // 2. JSON Body (URL input)
   try {
     const body = await req.json();
     const newUrl = typeof body.url === 'string' ? body.url.trim() : '';
 
-    if (!newUrl || (!newUrl.startsWith('http') && !newUrl.startsWith('/'))) {
-      return NextResponse.json({ error: 'Valid image URL is required' }, { status: 400 });
+    if (!newUrl || !isAllowedImageUrl(newUrl)) {
+      return NextResponse.json({ error: 'Valid HTTP(S) or /uploads/ image URL is required' }, { status: 400 });
     }
 
     const nextUrls = [...(product.imageUrls || []), newUrl];
@@ -127,11 +138,12 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const product = await getProduct(session.tenantId, params.id);
@@ -147,7 +159,7 @@ export async function DELETE(
   }
 
   const targetUrl = body.url;
-  if (!targetUrl) {
+  if (!targetUrl || typeof targetUrl !== 'string') {
     return NextResponse.json({ error: 'Target image URL required' }, { status: 400 });
   }
 
@@ -158,11 +170,7 @@ export async function DELETE(
 
   const updated = await updateProductImages(session.tenantId, params.id, nextUrls, nextThumb);
 
-  if (targetUrl.startsWith('/uploads/products/')) {
-    const filename = path.basename(targetUrl);
-    const filePath = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
-    fs.promises.unlink(filePath).catch(() => {});
-  }
+  await deleteLocalProductMedia(session.tenantId, targetUrl);
 
   return NextResponse.json({
     success: true,
@@ -175,11 +183,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const product = await getProduct(session.tenantId, params.id);
@@ -196,7 +205,10 @@ export async function PATCH(
 
   const { action, url, imageUrls } = body;
 
-  if (action === 'set-primary' && url) {
+  if (action === 'set-primary' && typeof url === 'string') {
+    if (!isAllowedImageUrl(url)) {
+      return NextResponse.json({ error: 'Invalid image URL protocol' }, { status: 400 });
+    }
     const remaining = (product.imageUrls || []).filter((u) => u !== url);
     const reordered = [url, ...remaining];
     const updated = await updateProductImages(session.tenantId, params.id, reordered, url);
@@ -208,7 +220,18 @@ export async function PATCH(
   }
 
   if (action === 'reorder' && Array.isArray(imageUrls)) {
-    const updated = await updateProductImages(session.tenantId, params.id, imageUrls, imageUrls[0] || null);
+    const cleanUrls = imageUrls.filter(
+      (u): u is string => typeof u === 'string' && isAllowedImageUrl(u)
+    );
+    if (cleanUrls.length !== imageUrls.length) {
+      return NextResponse.json({ error: 'One or more image URLs are invalid' }, { status: 400 });
+    }
+    const updated = await updateProductImages(
+      session.tenantId,
+      params.id,
+      cleanUrls,
+      cleanUrls[0] || null
+    );
     return NextResponse.json({
       success: true,
       imageUrls: updated.imageUrls,
@@ -218,4 +241,3 @@ export async function PATCH(
 
   return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
 }
-
