@@ -6,11 +6,15 @@ import {
   updateProfileAction,
   updatePersonaAction,
   testRazorpayConnectionAction,
+  testPhonePeConnectionAction,
+  updatePaymentSecretsAction,
   updateAiConfigAction,
   updateWhatsAppSettingsAction,
   toggleAiAgentAction,
   updateOfflineSettingsAction,
 } from '../../../lib/actions/settings';
+import type { MaskedPaymentSecrets } from '../../../lib/dal/settings';
+import type { StaffRole } from '../../../lib/auth';
 import { changePasswordAction } from '../../../lib/actions/auth';
 import {
   Store,
@@ -63,11 +67,14 @@ interface TenantProfileData {
 
 interface SettingsClientProps {
   tenant: TenantProfileData;
+  userRole: StaffRole;
+  paymentSecretsMasked: MaskedPaymentSecrets;
 }
 
-export function SettingsClient({ tenant }: SettingsClientProps) {
+export function SettingsClient({ tenant, userRole, paymentSecretsMasked }: SettingsClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const isOwner = userRole === 'OWNER';
 
   const [activeTab, setActiveTab] = useState<'profile' | 'whatsapp' | 'bot' | 'security' | 'payments' | 'phonepe' | 'ai'>('profile');
   const [showApiKey, setShowApiKey] = useState(false);
@@ -101,7 +108,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   // ─── AI Agent Offline State & Master Switch ─────────────────────
   const initialAgentEnabled = tenant.aiConfig?.aiAgentEnabled !== false;
   const [aiAgentEnabled, setAiAgentEnabled] = useState<boolean>(initialAgentEnabled);
-  const [offlinePhone, setOfflinePhone] = useState<string>(tenant.aiConfig?.offlineSupportPhone || '8105845527');
+  const [offlinePhone, setOfflinePhone] = useState<string>(tenant.aiConfig?.offlineSupportPhone || tenant.ownerPhone || '');
   const [offlineTemplate, setOfflineTemplate] = useState<string>(
     tenant.aiConfig?.offlineMessage ||
     `Hello! 👋 Thank you for reaching out to {storeName}.\n\n` +
@@ -117,7 +124,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   const [offlineStatusMessage, setOfflineStatusMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const [storefrontUrl, setStorefrontUrl] = useState<string>(
-    `http://localhost:3005/${tenant.slug || 'aura-luxe'}`
+    tenant.slug ? `http://localhost:3005/${tenant.slug}` : 'http://localhost:3005'
   );
 
   useEffect(() => {
@@ -136,7 +143,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
       : cleanOfflinePhone;
 
   const renderedPreview = String(offlineTemplate || '')
-    .replace(/{storeName}/g, tenant.name || 'Aura Luxe Boutique')
+    .replace(/{storeName}/g, tenant.name || 'Your Store')
     .replace(/{websiteUrl}/g, storefrontUrl)
     .replace(/{supportPhone}/g, formattedPreviewPhone);
 
@@ -191,10 +198,9 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   // ─── AI Config State ─────────────────────────────────────────────
 
   const ALL_MODELS: AiModelEntry[] = [
-    { provider: 'google', model: 'gemini-3.5-flash',            enabled: false },
-    { provider: 'google', model: 'gemini-3.5-flash-lite',       enabled: false },
-    { provider: 'google', model: 'gemini-3.8-flash',            enabled: false },
-    { provider: 'google', model: 'gemini-3.7-flash',            enabled: false },
+    { provider: 'google', model: 'gemini-2.5-flash',            enabled: false },
+    { provider: 'google', model: 'gemini-2.5-flash-lite',       enabled: false },
+    { provider: 'google', model: 'gemini-2.0-flash',            enabled: false },
     { provider: 'openai', model: 'gpt-4o-mini',                 enabled: false },
     { provider: 'openai', model: 'gpt-4o',                      enabled: false },
     { provider: 'openai', model: 'gpt-4-turbo',                 enabled: false },
@@ -203,12 +209,11 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   ];
 
   const DEFAULT_PRIORITY: AiModelEntry[] = [
-    { provider: 'google', model: 'gemini-3.5-flash',       enabled: true },
-    { provider: 'google', model: 'gemini-3.5-flash-lite',  enabled: true },
-    { provider: 'google', model: 'gemini-3.8-flash',       enabled: true },
+    { provider: 'google', model: 'gemini-2.5-flash',       enabled: true },
+    { provider: 'google', model: 'gemini-2.5-flash-lite',  enabled: true },
+    { provider: 'google', model: 'gemini-2.0-flash',       enabled: true },
     { provider: 'openai', model: 'gpt-4o-mini',            enabled: true },
     { provider: 'openai', model: 'gpt-4o',                 enabled: false },
-    { provider: 'google', model: 'gemini-3.7-flash',       enabled: false },
     { provider: 'openai', model: 'gpt-4-turbo',            enabled: false },
     { provider: 'anthropic', model: 'claude-3-5-haiku-20241022',  enabled: false },
     { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', enabled: false },
@@ -292,7 +297,6 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
   };
 
   const handleCopySecret = () => {
-    navigator.clipboard.writeText('wcos-razorpay-secret');
     setCopiedSecret(true);
     setTimeout(() => setCopiedSecret(false), 2000);
   };
@@ -307,7 +311,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
       setGatewayTestResult({
         success: false,
         message: err.message || 'Connection test failed',
-        keyId: 'rzp_test_sample',
+        keyId: paymentSecretsMasked.razorpayKeyIdMasked || 'not_configured',
         isSandbox: true,
       });
     } finally {
@@ -319,19 +323,8 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
     setIsTestingPhonePe(true);
     setPhonePeTestResult(null);
     try {
-      // Client-side health check via fetch to our API
-      const res = await fetch('/api/payments/phonepe/test-connection').catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        setPhonePeTestResult(data);
-      } else {
-        // Fallback: simulate the UAT connectivity test result
-        setPhonePeTestResult({
-          success: true,
-          message: 'PhonePe Sandbox Simulated Mode Active (local checkout simulator ready)',
-          details: { mode: 'simulated_sandbox', merchantId: 'PGTESTPAYUAT', environment: 'sandbox' },
-        });
-      }
+      const res = await testPhonePeConnectionAction();
+      setPhonePeTestResult(res);
     } catch (err: any) {
       setPhonePeTestResult({
         success: false,
@@ -804,7 +797,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                       type="text"
                       value={offlinePhone}
                       onChange={(e) => setOfflinePhone(e.target.value)}
-                      placeholder="e.g. 8105845527"
+                      placeholder="e.g. +91 98765 43210"
                       className="form-input"
                       style={{ fontFamily: 'var(--font-mono)' }}
                       required
@@ -927,7 +920,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
           )}
 
           {/* Tenant-Specific Dedicated Number Status Callout */}
-          {tenant.whatsappPhoneNumber === '9741446186' || tenant.name.toLowerCase().includes('aura luxe') ? (
+          {tenant.whatsappPhoneNumber ? (
             <div
               style={{
                 padding: '16px',
@@ -940,7 +933,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                 <span style={{ fontSize: '1.25rem' }}>👑</span>
                 <span style={{ fontWeight: 600, color: '#4ade80', fontSize: '0.9375rem' }}>
-                  Dedicated WhatsApp Number: 9741446186
+                  Dedicated WhatsApp Number: {tenant.whatsappPhoneNumber}
                 </span>
                 <span
                   style={{
@@ -953,11 +946,11 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                     textTransform: 'uppercase',
                   }}
                 >
-                  Dedicated to Aura Luxe
+                  Dedicated to {tenant.name}
                 </span>
               </div>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                Number <strong>9741446186</strong> (Evolution instance: <strong>wa_aura_luxe_01</strong>) is strictly and exclusively dedicated to Aura Luxe Boutique. All incoming customer WhatsApp messages to this phone number are routed directly to this store&apos;s AI sales agent and catalog.
+                Number <strong>{tenant.whatsappPhoneNumber}</strong> (Instance: <strong>{tenant.whatsappInstanceName || 'Configured'}</strong>) is strictly and exclusively dedicated to {tenant.name}. All incoming customer WhatsApp messages to this phone number are routed directly to this store&apos;s AI sales agent and catalog.
               </p>
             </div>
           ) : (
@@ -1016,7 +1009,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                 <input
                   name="whatsappPhoneNumber"
                   defaultValue={tenant.whatsappPhoneNumber || ''}
-                  placeholder="e.g. 9741446186"
+                  placeholder="e.g. 919876543210"
                   className="form-input"
                   style={{ fontFamily: 'var(--font-mono)' }}
                 />
@@ -1033,7 +1026,7 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
                   name="whatsappInstanceName"
                   defaultValue={tenant.whatsappInstanceName}
                   required
-                  placeholder="e.g. wa_aura_luxe_01"
+                  placeholder="e.g. wa_my_store_01"
                   className="form-input"
                   style={{ fontFamily: 'var(--font-mono)' }}
                 />
@@ -1436,59 +1429,73 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
             )}
           </div>
 
-          {/* Credentials Card */}
+          {/* Credentials Card (Encrypted Vault Status) */}
           <div className="card">
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '6px' }}>
-              Razorpay API Credentials
+              Razorpay API Credentials (Per-Tenant Encrypted Vault)
             </h3>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Sandbox keys enable automated testing without incurring real financial charges.
+              {isOwner
+                ? 'Store your merchant-specific Razorpay credentials encrypted with your HKDF tenant key.'
+                : 'Gateway secrets are restricted to the Store Owner.'}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8125rem' }}>Razorpay Key ID</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {isOwner ? (
+              <form
+                action={async (fd) => {
+                  await updatePaymentSecretsAction({}, fd);
+                  router.refresh();
+                }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}
+              >
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+                    Razorpay Key ID {paymentSecretsMasked.razorpayKeyIdMasked ? `(${paymentSecretsMasked.razorpayKeyIdMasked})` : ''}
+                  </label>
                   <input
+                    name="razorpayKeyId"
                     type="text"
-                    readOnly
-                    value="rzp_test_sample"
+                    placeholder={paymentSecretsMasked.razorpayKeyIdMasked || 'rzp_live_...'}
                     className="form-input"
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
                   />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText('rzp_test_sample');
-                      alert('Copied Key ID: rzp_test_sample');
-                    }}
-                  >
-                    Copy
-                  </button>
                 </div>
-              </div>
 
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8125rem' }}>Webhook Secret</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+                    Key Secret {paymentSecretsMasked.hasRazorpayKeySecret ? '(Stored Encrypted ✓)' : '(Not set)'}
+                  </label>
                   <input
-                    type="text"
-                    readOnly
-                    value="wcos-razorpay-secret"
+                    name="razorpayKeySecret"
+                    type="password"
+                    placeholder="Enter new Key Secret to rotate"
                     className="form-input"
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
                   />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={handleCopySecret}
-                  >
-                    {copiedSecret ? '✓ Copied' : 'Copy'}
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+                    Webhook Secret {paymentSecretsMasked.hasRazorpayWebhookSecret ? '(Stored Encrypted ✓)' : '(Not set)'}
+                  </label>
+                  <input
+                    name="razorpayWebhookSecret"
+                    type="password"
+                    placeholder="Enter Razorpay Webhook Secret"
+                    className="form-input"
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" disabled={isPending}>
+                    Save Encrypted Razorpay Keys
                   </button>
                 </div>
-              </div>
-            </div>
+              </form>
+            ) : (
+              <div className="badge badge-info">Managed by Store Owner</div>
+            )}
           </div>
 
           {/* Webhook Endpoint Card */}
@@ -1708,51 +1715,71 @@ export function SettingsClient({ tenant }: SettingsClientProps) {
             </div>
           </div>
 
-          {/* PhonePe Credentials */}
+          {/* PhonePe Credentials (Encrypted Vault) */}
           <div className="card">
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, marginBottom: '6px' }}>
-              PhonePe UAT API Credentials
+              PhonePe API Credentials (Per-Tenant Encrypted Vault)
             </h3>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Official PhonePe UAT sandbox credentials. Replace with production keys from the
+              Configure merchant-specific PhonePe credentials from the
               <a href="https://developer.phonepe.com" target="_blank" rel="noopener noreferrer" style={{ color: '#a78bfa', marginLeft: '4px' }}>PhonePe Developer Portal →</a>
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8125rem' }}>Merchant ID</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {isOwner ? (
+              <form
+                action={async (fd) => {
+                  await updatePaymentSecretsAction({}, fd);
+                  router.refresh();
+                }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}
+              >
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+                    Merchant ID {paymentSecretsMasked.phonepeMerchantIdMasked ? `(${paymentSecretsMasked.phonepeMerchantIdMasked})` : ''}
+                  </label>
                   <input
+                    name="phonepeMerchantId"
                     type="text"
-                    readOnly
-                    value="PGTESTPAYUAT"
+                    placeholder={paymentSecretsMasked.phonepeMerchantIdMasked || 'Merchant ID'}
                     className="form-input"
                     style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
                   />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => navigator.clipboard.writeText('PGTESTPAYUAT')}
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>
+                    Salt Key {paymentSecretsMasked.hasPhonepeSaltKey ? '(Stored Encrypted ✓)' : '(Not set)'}
+                  </label>
+                  <input
+                    name="phonepeSaltKey"
+                    type="password"
+                    placeholder="Enter PhonePe Salt Key"
+                    className="form-input"
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontSize: '0.8125rem' }}>Environment</label>
+                  <select
+                    name="phonepeEnvironment"
+                    defaultValue={paymentSecretsMasked.phonepeEnvironment}
+                    className="form-select"
                   >
-                    Copy
+                    <option value="sandbox">sandbox (UAT)</option>
+                    <option value="production">production</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" disabled={isPending}>
+                    Save Encrypted PhonePe Keys
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="form-label" style={{ fontSize: '0.8125rem' }}>Environment</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    readOnly
-                    value="sandbox (UAT)"
-                    className="form-input"
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}
-                  />
-                  <span className="badge" style={{ background: 'rgba(124,58,237,0.2)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)', whiteSpace: 'nowrap' }}>UAT Active</span>
-                </div>
-              </div>
-            </div>
+              </form>
+            ) : (
+              <div className="badge badge-info">Managed by Store Owner</div>
+            )}
           </div>
 
           {/* PhonePe Webhook Endpoint */}

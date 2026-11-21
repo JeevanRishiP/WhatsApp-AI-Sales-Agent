@@ -17,6 +17,7 @@ import {
   Receipt,
   Layers,
 } from 'lucide-react';
+import { formatDateTime, formatDateShort } from '@/lib/format';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -73,13 +74,7 @@ function fmt(n: number) {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatDateTime(d);
 }
 
 function getGatewayLabel(gateway: string) {
@@ -642,11 +637,11 @@ export function PaymentsClient({
                     <td>
                       <span className={getStatusBadge(p.status)}>{getPaymentStatusLabel(p.status)}</span>
                     </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                      {new Date(p.createdAt).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                      })}
+                    <td
+                      style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+                      suppressHydrationWarning
+                    >
+                      {formatDateShort(p.createdAt)}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button

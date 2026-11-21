@@ -1,15 +1,21 @@
 import { getSession } from '../../../lib/auth';
-import { getTenantProfile } from '../../../lib/dal';
+import { getTenantProfile, getMaskedPaymentSecrets } from '../../../lib/dal/settings';
+import { maskSecret } from '@wcos/crypto';
 import { SettingsClient } from './SettingsClient';
 import { notFound } from 'next/navigation';
 
 export default async function SettingsPage() {
   const session = await getSession();
-  const tenant = await getTenantProfile(session.tenantId);
+  const [tenant, paymentSecretsMasked] = await Promise.all([
+    getTenantProfile(session.tenantId),
+    getMaskedPaymentSecrets(session.tenantId),
+  ]);
 
   if (!tenant) {
     notFound();
   }
+
+  const isOwner = session.role === 'OWNER';
 
   return (
     <div className="page-container">
@@ -32,15 +38,17 @@ export default async function SettingsPage() {
           businessCategory: tenant.businessCategory,
           status: tenant.status,
           plan: tenant.plan,
-          apiKey: tenant.apiKey,
+          apiKey: isOwner ? tenant.apiKey : maskSecret(tenant.apiKey, 4),
           whatsappInstanceName: tenant.whatsappInstanceName,
-          whatsappPhoneNumber: (tenant as any).whatsappPhoneNumber || '',
+          whatsappPhoneNumber: tenant.whatsappPhoneNumber || '',
           persona: tenant.persona as any,
-          aiConfig: (tenant as any).aiConfig || {},
-          slug: tenant.slug || 'aura-luxe',
+          aiConfig: (tenant.aiConfig as any) || {},
+          slug: tenant.slug || '',
           monthlyMessageCount: tenant.monthlyMessageCount,
           monthlyMessageLimit: tenant.monthlyMessageLimit,
         }}
+        userRole={session.role}
+        paymentSecretsMasked={paymentSecretsMasked}
       />
     </div>
   );
