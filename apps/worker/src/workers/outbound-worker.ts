@@ -1,10 +1,14 @@
 import { Worker, type Job } from 'bullmq';
 import { prisma } from '@wcos/db';
-import { QUEUE_NAMES, getRedisConnection, type OutboundMessageJobData } from '@wcos/queue';
+import {
+  QUEUE_NAMES,
+  createWorkerRedisConnection,
+  type OutboundMessageJobData,
+} from '@wcos/queue';
 import { EvolutionClient } from '../whatsapp/evolution-client.js';
 
 export function createOutboundMessageWorker(): Worker<OutboundMessageJobData> {
-  const connection = getRedisConnection();
+  const connection = createWorkerRedisConnection();
   const evolutionClient = new EvolutionClient();
 
   const worker = new Worker<OutboundMessageJobData>(
@@ -14,9 +18,22 @@ export function createOutboundMessageWorker(): Worker<OutboundMessageJobData> {
 
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          whatsappInstanceName: true,
+        },
       });
 
-      const instanceName = tenant?.whatsappInstanceName || 'sales-bot';
+      if (!tenant || tenant.status !== 'ACTIVE' || !tenant.whatsappInstanceName) {
+        console.warn(
+          `[OutboundWorker] Refusing outbound dispatch: tenant ${tenantId} is missing, inactive, or lacks whatsappInstanceName`
+        );
+        return;
+      }
+
+      const instanceName = tenant.whatsappInstanceName;
 
       if (buttons && buttons.length > 0) {
         await evolutionClient.sendButtons(
