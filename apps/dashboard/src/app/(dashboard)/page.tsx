@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '../../lib/auth';
+import { formatDateTime } from '@/lib/format';
 import {
   getDashboardStats,
   getRecentOrders,
@@ -69,7 +70,10 @@ export default async function DashboardPage() {
       <div className="page-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span
+              style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              suppressHydrationWarning
+            >
               {currentDateFormatted}
             </span>
           </div>
@@ -381,13 +385,11 @@ export default async function DashboardPage() {
                           {order.status.replace(/_/g, ' ')}
                         </span>
                       </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                        {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <td
+                        style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}
+                        suppressHydrationWarning
+                      >
+                        {formatDateTime(order.createdAt)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <Link

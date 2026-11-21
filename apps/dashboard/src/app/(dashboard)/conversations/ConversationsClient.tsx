@@ -7,6 +7,7 @@ import {
   reopenConversationAction,
   sendAgentReplyAction,
 } from '../../../lib/actions/conversations';
+import { formatTime } from '@/lib/format';
 import {
   MessageSquare,
   AlertTriangle,
@@ -60,13 +61,7 @@ interface ConversationsClientProps {
 
 function formatMessageTime(dateInput: any): string {
   if (!dateInput) return '';
-  const date = new Date(dateInput);
-  if (isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return formatTime(dateInput);
 }
 
 function getChatDateLabel(dateInput: any): string {
@@ -170,15 +165,21 @@ export function ConversationsClient({
     scrollToBottom('smooth');
   }, [currentChat?.messages?.length]);
 
-  // Live auto-polling: refresh conversation timeline every 4s so new WhatsApp messages appear in real-time
+  // Live auto-refresh: sync active visible conversation timeline every 10s without spamming background tabs
   useEffect(() => {
-    const timer = setInterval(() => {
+    const refreshIfVisible = () => {
       if (document.visibilityState === 'visible' && !isPending) {
         router.refresh();
       }
-    }, 4000);
+    };
 
-    return () => clearInterval(timer);
+    const timer = setInterval(refreshIfVisible, 10000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [router, isPending]);
 
   const handleSelect = (id: string) => {
