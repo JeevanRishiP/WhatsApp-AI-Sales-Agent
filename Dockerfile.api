@@ -2,15 +2,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Enable pnpm
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
-# Copy monorepo manifests
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
 
-# Copy package manifests for layer caching
 COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/storefront/package.json ./apps/storefront/
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/ai/package.json ./packages/ai/
 COPY packages/crypto/package.json ./packages/crypto/
@@ -19,18 +17,14 @@ COPY packages/payments/package.json ./packages/payments/
 COPY packages/queue/package.json ./packages/queue/
 COPY packages/types/package.json ./packages/types/
 
-# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy sources required for the API
 COPY apps/api ./apps/api
 COPY packages ./packages
 
-# Generate Prisma client and build @wcos/api and internal dependencies
 RUN pnpm db:generate
 RUN pnpm --filter @wcos/api... build
 
-# Runner stage
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -39,8 +33,12 @@ ENV PORT=3002
 
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
-COPY --from=builder /app ./
+COPY --from=builder --chown=node:node /app ./
 
+USER node
 EXPOSE 3002
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3002/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["pnpm", "--filter", "@wcos/api", "start"]
