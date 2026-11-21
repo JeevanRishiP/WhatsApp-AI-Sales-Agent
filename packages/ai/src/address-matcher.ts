@@ -263,8 +263,10 @@ export function matchSavedAddressSelection(
   // 3. Label matching (e.g. "home", "deliver to home", "office", "work")
   for (const addr of savedAddresses) {
     if (addr.label) {
-      const lbl = addr.label.toLowerCase().trim();
-      const regex = new RegExp(`\\b${lbl}\\b`, 'i');
+      const lbl = addr.label.toLowerCase().trim().slice(0, 40);
+      if (!lbl) continue;
+      const escapedLbl = lbl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?:^|[^a-z0-9])${escapedLbl}(?:$|[^a-z0-9])`, 'i');
       if (regex.test(msg)) {
         return addr;
       }
