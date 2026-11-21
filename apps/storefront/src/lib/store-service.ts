@@ -1,5 +1,7 @@
 import { prisma } from '@wcos/db';
-import auraData from './aura-data.json';
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface StoreTenant {
   id: string;
@@ -8,8 +10,9 @@ export interface StoreTenant {
   ownerName: string;
   ownerPhone: string;
   whatsappPhoneNumber: string;
-  whatsappInstanceName: string;
+  whatsappInstanceName: string | null;
   businessCategory: string;
+  botName: string;
   storefrontTheme: {
     primaryColor: string;
     accentColor: string;
@@ -36,136 +39,113 @@ export interface StoreProduct {
   tags?: string[];
 }
 
-export const AURA_TENANT: StoreTenant = {
-  id: auraData.tenant.id,
-  name: 'Aura Luxe Boutique',
-  slug: 'aura-luxe',
-  ownerName: auraData.tenant.ownerName,
-  ownerPhone: auraData.tenant.ownerPhone,
-  whatsappPhoneNumber: auraData.tenant.ownerPhone,
-  whatsappInstanceName: auraData.tenant.whatsappInstanceName,
-  businessCategory: 'Luxury Handloom & Silk Sarees',
-  storefrontTheme: {
-    primaryColor: '#0C0C0C',
-    accentColor: '#C5A880',
-    fontStyle: 'serif',
-  },
-  storePolicies: {
-    allowAddressChangeUntil: 'SHIPPED',
-    allowCancelUntil: 'PROCESSING',
-  },
+const DEFAULT_THEME = {
+  primaryColor: '#0C0C0C',
+  accentColor: '#C5A880',
+  fontStyle: 'serif',
 };
 
-export const AURA_PRODUCTS: StoreProduct[] = auraData.products.map((p) => ({
-  id: p.id,
-  code: p.code,
-  name: p.name,
-  description: p.description,
-  category: p.category,
-  subcategory: p.subcategory,
-  price: p.price,
-  salePrice: p.salePrice ?? null,
-  stock: p.stock,
-  reserved: 0,
-  availableStock: p.stock,
-  imageUrls: p.imageUrls,
-  thumbnailUrl: p.imageUrls[0] || null,
-  attributes: p.attributes as any,
-  tags: p.tags,
-}));
+const DEFAULT_POLICIES = {
+  allowAddressChangeUntil: 'SHIPPED',
+  allowCancelUntil: 'PROCESSING',
+};
 
-export async function getStoreTenant(slug: string): Promise<StoreTenant> {
+export async function getStoreTenant(slug: string): Promise<StoreTenant | null> {
   const normalized = (slug || '').toLowerCase().trim();
+  if (!normalized) {
+    return null;
+  }
 
-  // 1. Try fetching from live PostgreSQL database
   try {
-    const isAura =
-      normalized === 'aura' ||
-      normalized === 'aura-luxe' ||
-      normalized === 'aura-saree-shop' ||
-      normalized === 'aura-archived' ||
-      normalized === 'demo' ||
-      normalized === 'wa_aura_luxe_01';
-
-    if (isAura) {
-      const tenant = await prisma.tenant.findFirst({
-        where: {
-          id: AURA_TENANT.id,
-          status: 'ACTIVE',
-        },
-      });
-
-      if (tenant) {
-        return {
-          id: tenant.id,
-          name: tenant.name,
-          slug: tenant.slug || 'aura-luxe',
-          ownerName: tenant.ownerName,
-          ownerPhone: tenant.ownerPhone,
-          whatsappPhoneNumber: tenant.whatsappPhoneNumber || tenant.ownerPhone,
-          whatsappInstanceName: tenant.whatsappInstanceName,
-          businessCategory: tenant.businessCategory || 'Luxury Handloom & Silk Sarees',
-          storefrontTheme: (tenant.storefrontTheme as any) || AURA_TENANT.storefrontTheme,
-          storePolicies: (tenant.storePolicies as any) || AURA_TENANT.storePolicies,
-        };
-      }
-    }
-
     const tenant = await prisma.tenant.findFirst({
       where: {
         status: 'ACTIVE',
         OR: [
           { slug: normalized },
           { whatsappInstanceName: normalized },
+          { customDomain: normalized },
         ],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        ownerName: true,
+        ownerPhone: true,
+        supportPhone: true,
+        whatsappPhoneNumber: true,
+        whatsappInstanceName: true,
+        businessCategory: true,
+        storefrontTheme: true,
+        storePolicies: true,
+        aiConfig: true,
       },
     });
 
-    if (tenant) {
-      return {
-        id: tenant.id,
-        name: tenant.name,
-        slug: tenant.slug || normalized,
-        ownerName: tenant.ownerName,
-        ownerPhone: tenant.ownerPhone,
-        whatsappPhoneNumber: tenant.whatsappPhoneNumber || tenant.ownerPhone,
-        whatsappInstanceName: tenant.whatsappInstanceName,
-        businessCategory: tenant.businessCategory || 'Luxury Handloom & Silk Sarees',
-        storefrontTheme: (tenant.storefrontTheme as any) || AURA_TENANT.storefrontTheme,
-        storePolicies: (tenant.storePolicies as any) || AURA_TENANT.storePolicies,
-      };
+    if (!tenant) {
+      return null;
     }
-  } catch (err) {
-    // Database offline or query error, fall back to Aura Luxe Boutique
-  }
 
-  // 2. Return Aura Luxe Boutique as standard store
-  return AURA_TENANT;
+    const aiConfig = (tenant.aiConfig as Record<string, any>) || {};
+    const persona = (aiConfig['persona'] as Record<string, any>) || {};
+    const botName =
+      String(persona['botName'] || persona['agentName'] || '').trim() || 'Store Concierge';
+
+    return {
+      id: tenant.id,
+      name: tenant.name,
+      slug: tenant.slug || normalized,
+      ownerName: tenant.ownerName,
+      ownerPhone: tenant.ownerPhone,
+      whatsappPhoneNumber: tenant.whatsappPhoneNumber || tenant.supportPhone || tenant.ownerPhone,
+      whatsappInstanceName: tenant.whatsappInstanceName,
+      businessCategory: tenant.businessCategory || 'Curated Online Store',
+      botName,
+      storefrontTheme: (tenant.storefrontTheme as any) || DEFAULT_THEME,
+      storePolicies: (tenant.storePolicies as any) || DEFAULT_POLICIES,
+    };
+  } catch (err) {
+    console.error('[StoreService] Failed to fetch store tenant:', err);
+    return null;
+  }
 }
 
-export async function getStoreProducts(tenantId: string, category?: string, search?: string): Promise<{
+export async function getStoreProducts(
+  tenantId: string,
+  category?: string,
+  search?: string
+): Promise<{
   products: StoreProduct[];
   categories: string[];
 }> {
   try {
+    const andConditions: any[] = [];
+
+    if (category && category !== 'all') {
+      andConditions.push({
+        OR: [
+          { category: { equals: category, mode: 'insensitive' } },
+          { subcategory: { equals: category, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
     const where: any = {
       tenantId,
       status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
     };
-
-    if (category && category !== 'all') {
-      where.OR = [
-        { category: { equals: category, mode: 'insensitive' } },
-        { subcategory: { equals: category, mode: 'insensitive' } },
-      ];
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-      ];
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const [dbProducts, dbCategories] = await Promise.all([
@@ -179,110 +159,86 @@ export async function getStoreProducts(tenantId: string, category?: string, sear
       }),
     ]);
 
-    if (dbProducts.length > 0) {
-      const cats = Array.from(
-        new Set(
-          dbCategories
-            .flatMap((c) => [c.category, c.subcategory])
-            .filter((c): c is string => Boolean(c))
-        )
-      );
-
-      return {
-        products: dbProducts.map((p) => ({
-          id: p.id,
-          code: p.code,
-          name: p.name,
-          description: p.description,
-          category: p.category,
-          subcategory: p.subcategory,
-          price: Number(p.price),
-          salePrice: p.salePrice ? Number(p.salePrice) : null,
-          stock: p.stock,
-          reserved: p.reserved,
-          availableStock: Math.max(0, p.stock - p.reserved),
-          imageUrls: p.imageUrls,
-          thumbnailUrl: p.thumbnailUrl || p.imageUrls[0] || null,
-          attributes: (p.attributes as any) || {},
-          tags: p.tags,
-        })),
-        categories: cats,
-      };
-    }
-  } catch {
-    // Database offline, fall back to Aura products
-  }
-
-  // Fallback to Aura Luxe Boutique seed products
-  let filtered = [...AURA_PRODUCTS];
-
-  if (category && category !== 'all') {
-    filtered = filtered.filter(
-      (p) =>
-        p.category?.toLowerCase() === category.toLowerCase() ||
-        p.subcategory?.toLowerCase() === category.toLowerCase()
+    const cats = Array.from(
+      new Set(
+        dbCategories
+          .flatMap((c) => [c.category, c.subcategory])
+          .filter((c): c is string => Boolean(c))
+      )
     );
+
+    return {
+      products: dbProducts.map((p) => ({
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        description: p.description,
+        category: p.category,
+        subcategory: p.subcategory,
+        price: Number(p.price),
+        salePrice: p.salePrice ? Number(p.salePrice) : null,
+        stock: p.stock,
+        reserved: p.reserved,
+        availableStock: Math.max(0, p.stock - p.reserved),
+        imageUrls: p.imageUrls,
+        thumbnailUrl: p.thumbnailUrl || p.imageUrls[0] || null,
+        attributes: (p.attributes as any) || {},
+        tags: p.tags,
+      })),
+      categories: cats,
+    };
+  } catch (err) {
+    console.error('[StoreService] Failed to fetch store products:', err);
+    return { products: [], categories: [] };
   }
-
-  if (search) {
-    const q = search.toLowerCase();
-    filtered = filtered.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.code.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q)
-    );
-  }
-
-  const allCategories = Array.from(
-    new Set(
-      AURA_PRODUCTS.flatMap((p) => [p.category, p.subcategory]).filter((c): c is string => Boolean(c))
-    )
-  );
-
-  return {
-    products: filtered,
-    categories: allCategories,
-  };
 }
 
-export async function getStoreProductById(tenantId: string, idOrCode: string): Promise<StoreProduct | null> {
+export async function getStoreProductById(
+  tenantId: string,
+  idOrCode: string
+): Promise<StoreProduct | null> {
+  const query = (idOrCode || '').trim();
+  if (!query) {
+    return null;
+  }
+
   try {
+    const orFilters: any[] = [{ code: { equals: query, mode: 'insensitive' } }];
+    if (UUID_REGEX.test(query)) {
+      orFilters.unshift({ id: query });
+    }
+
     const product = await prisma.product.findFirst({
       where: {
         tenantId,
-        OR: [{ id: idOrCode.length === 36 ? idOrCode : undefined }, { code: idOrCode }],
+        status: { in: ['ACTIVE', 'OUT_OF_STOCK'] },
+        OR: orFilters,
       },
     });
 
-    if (product) {
-      return {
-        id: product.id,
-        code: product.code,
-        name: product.name,
-        description: product.description,
-        category: product.category,
-        subcategory: product.subcategory,
-        price: Number(product.price),
-        salePrice: product.salePrice ? Number(product.salePrice) : null,
-        stock: product.stock,
-        reserved: product.reserved,
-        availableStock: Math.max(0, product.stock - product.reserved),
-        imageUrls: product.imageUrls,
-        thumbnailUrl: product.thumbnailUrl || product.imageUrls[0] || null,
-        attributes: (product.attributes as any) || {},
-        tags: product.tags,
-      };
+    if (!product) {
+      return null;
     }
-  } catch {
-    // Database offline
+
+    return {
+      id: product.id,
+      code: product.code,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      subcategory: product.subcategory,
+      price: Number(product.price),
+      salePrice: product.salePrice ? Number(product.salePrice) : null,
+      stock: product.stock,
+      reserved: product.reserved,
+      availableStock: Math.max(0, product.stock - product.reserved),
+      imageUrls: product.imageUrls,
+      thumbnailUrl: product.thumbnailUrl || product.imageUrls[0] || null,
+      attributes: (product.attributes as any) || {},
+      tags: product.tags,
+    };
+  } catch (err) {
+    console.error('[StoreService] Failed to fetch product by ID:', err);
+    return null;
   }
-
-  // Fallback to Aura catalog
-  const match = AURA_PRODUCTS.find(
-    (p) => p.id === idOrCode || p.code.toLowerCase() === idOrCode.toLowerCase()
-  );
-
-  return match || null;
 }
-

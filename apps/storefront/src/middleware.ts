@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { ROOT_DOMAIN } from '@/lib/config';
+import { API_BASE_URL, ROOT_DOMAIN } from '@/lib/config';
 
-export function middleware(request: NextRequest) {
+const SAFE_SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,62}$/;
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Pass static assets and next internals directly
@@ -14,15 +16,30 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Hostname handling for custom domains / subdomains
-  const hostname = request.headers.get('host') || '';
-  const currentHost = ROOT_DOMAIN;
+  // Hostname handling for verified custom domains / subdomains
+  const rawHost = (request.headers.get('host') || '').toLowerCase();
+  const hostname = rawHost.split(':')[0] || '';
+  const rootHost = ROOT_DOMAIN.toLowerCase().split(':')[0] || '';
 
-  // If custom domain is used (e.g. boutique.com instead of localhost:3005)
-  if (hostname && !hostname.includes(currentHost) && !hostname.startsWith('localhost')) {
-    const subdomain = hostname.split('.')[0];
-    if (subdomain && subdomain !== 'www') {
-      return NextResponse.rewrite(new URL(`/${subdomain}${pathname}`, request.url));
+  if (
+    hostname &&
+    hostname !== rootHost &&
+    !hostname.startsWith('localhost') &&
+    hostname !== '127.0.0.1'
+  ) {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/customer/resolve-domain?host=${encodeURIComponent(hostname)}`,
+        { signal: AbortSignal.timeout(1500), cache: 'no-store' }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { slug?: string };
+        if (data.slug && SAFE_SLUG_REGEX.test(data.slug)) {
+          return NextResponse.rewrite(new URL(`/${data.slug}${pathname}`, request.url));
+        }
+      }
+    } catch {
+      // Fall through cleanly if API domain resolver is unreachable
     }
   }
 
