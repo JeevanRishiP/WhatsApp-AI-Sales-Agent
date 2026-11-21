@@ -77,39 +77,76 @@ export function HumanHandoffStickyBanner({
     }
   };
 
-  // Poll for handoff status every 5 seconds
+  // Subscribe to SSE /api/events for handoff alerts with visibility-aware fallback polling
   useEffect(() => {
     let mounted = true;
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    let eventSource: EventSource | null = null;
+
+    const applyUpdate = (data: { count?: number; queue?: HandoffQueueItem[] }) => {
+      if (!mounted) return;
+      const newCount = Number(data.count || 0);
+      const newQueue: HandoffQueueItem[] = data.queue || [];
+      if (newCount > prevCountRef.current) {
+        playAlertChime();
+      }
+      prevCountRef.current = newCount;
+      setCount(newCount);
+      setQueue(newQueue);
+    };
 
     const checkHandoffStatus = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       try {
         const res = await fetch('/api/handoff/status', { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
-        if (!mounted) return;
-
-        const newCount = Number(data.count || 0);
-        const newQueue: HandoffQueueItem[] = data.queue || [];
-
-        // If a new customer requested handoff, play alert tone
-        if (newCount > prevCountRef.current) {
-          playAlertChime();
-        }
-        prevCountRef.current = newCount;
-        setCount(newCount);
-        setQueue(newQueue);
+        applyUpdate(data);
       } catch {
         // Network retry on next interval
       }
     };
 
-    // Initial fetch in case server count was stale
-    checkHandoffStatus();
+    const startFallbackPolling = () => {
+      if (fallbackTimer) return;
+      fallbackTimer = setInterval(checkHandoffStatus, 15000);
+    };
 
-    const interval = setInterval(checkHandoffStatus, 5000);
+    if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+      try {
+        eventSource = new EventSource('/api/events');
+        eventSource.addEventListener('handoff_status', (evt) => {
+          try {
+            const parsed = JSON.parse((evt as MessageEvent).data);
+            applyUpdate(parsed);
+          } catch {
+            // Ignore malformed SSE event payload
+          }
+        });
+        eventSource.onerror = () => {
+          // Keep EventSource reconnect, and enable gentle visibility-aware fallback
+          startFallbackPolling();
+        };
+      } catch {
+        startFallbackPolling();
+      }
+    } else {
+      checkHandoffStatus();
+      startFallbackPolling();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkHandoffStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       mounted = false;
-      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      if (eventSource) eventSource.close();
     };
   }, [soundEnabled]);
 

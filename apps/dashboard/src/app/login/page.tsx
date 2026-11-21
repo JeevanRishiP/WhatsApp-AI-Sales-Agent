@@ -11,10 +11,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
-  Store,
-  Sparkles,
-  Coffee,
 } from 'lucide-react';
 
 function SubmitButton({ method }: { method: 'password' | 'apikey' }) {
@@ -52,11 +48,11 @@ function SubmitButton({ method }: { method: 'password' | 'apikey' }) {
 }
 
 export default function LoginPage() {
-  const [method, setMethod] = useState<'password' | 'apikey'>('apikey');
+  const [method, setMethod] = useState<'password' | 'apikey'>('password');
   const [state, formAction] = useFormState(loginAction, {});
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [apiKey, setApiKey] = useState('sk_live_aura_8f92jkl2309x');
+  const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
     if (state?.success) {
@@ -134,110 +130,21 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* 1-Click Instant Demo Login Cards */}
-        <div
-          style={{
-            marginBottom: '22px',
-            padding: '16px',
-            borderRadius: 'var(--radius-lg)',
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              color: '#818CF8',
-              marginBottom: '12px',
-              letterSpacing: '0.06em',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <Sparkles size={12} />
-            <span>Instant 1-Click Demo Environments</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <a
-              href="/api/auth/demo-login?key=sk_live_aura_8f92jkl2309x"
-              className="btn btn-primary"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 14px',
-                width: '100%',
-                fontWeight: 600,
-                fontSize: '0.875rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Store size={15} />
-                <span>Aura Luxe Boutique</span>
-              </div>
-              <span style={{ fontSize: '0.6875rem', background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: '4px' }}>
-                Luxury Sarees
-              </span>
-            </a>
-
-            <a
-              href="/api/auth/demo-login?key=sk_live_roast_9f82kxl2390y"
-              className="btn btn-secondary"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 14px',
-                width: '100%',
-                fontSize: '0.8125rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Coffee size={15} style={{ color: '#F59E0B' }} />
-                <span>RoastCraft India</span>
-              </div>
-              <span style={{ fontSize: '0.6875rem', background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>
-                Artisan Coffee
-              </span>
-            </a>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            margin: '18px 0',
-            color: 'var(--text-muted)',
-            fontSize: '0.75rem',
-          }}
-        >
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-          <span>or sign in manually</span>
-          <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-        </div>
-
         {/* Tab Switcher */}
         <div className="login-tabs">
-          <button
-            type="button"
-            className={`login-tab ${method === 'apikey' ? 'active' : ''}`}
-            onClick={() => setMethod('apikey')}
-          >
-            API Key Authentication
-          </button>
           <button
             type="button"
             className={`login-tab ${method === 'password' ? 'active' : ''}`}
             onClick={() => setMethod('password')}
           >
             Email & Password
+          </button>
+          <button
+            type="button"
+            className={`login-tab ${method === 'apikey' ? 'active' : ''}`}
+            onClick={() => setMethod('apikey')}
+          >
+            API Key Authentication
           </button>
         </div>
 
@@ -260,44 +167,16 @@ export default function LoginPage() {
                 <input
                   id="apiKey"
                   name="apiKey"
-                  type="text"
+                  type="password"
                   required
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="sk_live_aura_..."
+                  placeholder="sk_live_..."
                   className="form-input"
                   style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', paddingLeft: '34px' }}
                   autoComplete="off"
                 />
                 <Key size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              </div>
-
-              <div
-                style={{
-                  marginTop: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quick Presets:</span>
-                <button
-                  type="button"
-                  onClick={() => setApiKey('sk_live_aura_8f92jkl2309x')}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
-                >
-                  Aura Key
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setApiKey('sk_live_roast_9f82kxl2390y')}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
-                >
-                  RoastCraft Key
-                </button>
               </div>
             </div>
           ) : (
@@ -314,7 +193,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="aditi@auraluxe.in"
+                    placeholder="owner@yourstore.com"
                     className="form-input"
                     style={{ paddingLeft: '34px' }}
                     autoComplete="email"
@@ -342,29 +221,6 @@ export default function LoginPage() {
                   />
                   <Lock size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Demo Credentials:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('aditi@auraluxe.in');
-                    setPassword('admin123');
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.6875rem', padding: '2px 8px' }}
-                >
-                  Fill Aura (admin123)
-                </button>
               </div>
             </>
           )}
