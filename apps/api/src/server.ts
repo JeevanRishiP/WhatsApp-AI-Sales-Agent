@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import rawBody from 'fastify-raw-body';
 import { prisma } from '@wcos/db';
-import { closeAllQueues, closeRedisConnection } from '@wcos/queue';
+import { closeAllQueues, closeRedisConnection, getRedisCacheConnection } from '@wcos/queue';
 import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { evolutionWebhookRoutes } from './routes/webhooks/evolution.js';
@@ -21,9 +21,59 @@ import { customerCartRoutes } from './routes/customer/cart.js';
 import { customerOrdersRoutes } from './routes/customer/orders.js';
 import { customerAddressesRoutes } from './routes/customer/addresses.js';
 
+// Short-lived cache of active tenant custom domains for CORS validation
+let customDomainCache: { origins: Set<string>; expiresAt: number } = {
+  origins: new Set(),
+  expiresAt: 0,
+};
+
+async function isAllowedOrigin(origin: string | undefined): Promise<boolean> {
+  // Non-browser / server-to-server requests (webhooks, curl) have no Origin header
+  if (!origin) return true;
+
+  const normalized = origin.trim().replace(/\/+$/, '');
+  if (config.ALLOWED_ORIGINS.includes(normalized)) {
+    return true;
+  }
+
+  let hostname: string;
+  try {
+    hostname = new URL(normalized).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+
+  const now = Date.now();
+  if (now > customDomainCache.expiresAt) {
+    try {
+      const tenants = await prisma.tenant.findMany({
+        where: { status: 'ACTIVE', customDomain: { not: null } },
+        select: { customDomain: true },
+      });
+      customDomainCache = {
+        origins: new Set(
+          tenants
+            .map((t) => t.customDomain?.trim().toLowerCase())
+            .filter((d): d is string => Boolean(d))
+        ),
+        expiresAt: now + 60_000,
+      };
+    } catch {
+      // Retain existing cache if DB query fails briefly
+    }
+  }
+
+  return customDomainCache.origins.has(hostname);
+}
+
 export async function buildServer(): Promise<FastifyInstance> {
+  const resolvedTrustProxy =
+    typeof config.TRUST_PROXY === 'number'
+      ? (_address: string, hop: number) => hop <= (config.TRUST_PROXY as number)
+      : config.TRUST_PROXY;
+
   const server = Fastify({
-    trustProxy: true,
+    trustProxy: resolvedTrustProxy,
     logger: {
       level: config.LOG_LEVEL,
       transport:
@@ -46,20 +96,22 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   await server.register(cors, {
-    origin: (_origin, cb) => {
-      // Echo the requesting origin to support credentials across local ports (3005 -> 3002) and tunnels
-      cb(null, true);
+    origin: (origin, cb) => {
+      isAllowedOrigin(origin)
+        .then((allowed) => cb(allowed ? null : new Error('Origin not allowed by CORS'), allowed))
+        .catch(() => cb(new Error('CORS validation error'), false));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-slug', 'x-api-key', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-slug', 'x-guest-session-id', 'x-api-key', 'Cookie'],
     exposedHeaders: ['Set-Cookie'],
   });
 
   await server.register(rateLimit, {
-    max: 1000,
+    redis: getRedisCacheConnection(),
+    max: config.NODE_ENV === 'production' ? 200 : 1000,
     timeWindow: '1 minute',
-    allowList: ['127.0.0.1', '::1', 'localhost'],
+    allowList: config.NODE_ENV === 'production' ? [] : ['127.0.0.1', '::1', 'localhost'],
   });
 
   // 2. Raw Body Plugin (essential for HMAC signature verification)
@@ -83,8 +135,12 @@ export async function buildServer(): Promise<FastifyInstance> {
   await server.register(metaWebhookRoutes);
   await server.register(razorpayWebhookRoutes);
   await server.register(phonePeWebhookRoutes);
-  await server.register(checkoutPaymentRoutes);
-  await server.register(phonePeCheckoutRoutes);
+  if (config.NODE_ENV !== 'production' && config.ENABLE_PAYMENT_SIMULATOR) {
+    await server.register(checkoutPaymentRoutes);
+    await server.register(phonePeCheckoutRoutes);
+  } else {
+    server.log.info('Payment sandbox simulator routes disabled');
+  }
   await server.register(tenantAdminRoutes);
   await server.register(productAdminRoutes);
   await server.register(customerAuthRoutes);
