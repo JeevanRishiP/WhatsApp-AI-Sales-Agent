@@ -28,16 +28,17 @@
     "studio": "prisma studio",
     "seed": "tsx prisma/seed.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
-    "@prisma/client": "^6.2.0",
-    "@wcos/types": "workspace:*"
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@wcos/types": "workspace:*",
+    "dotenv": "^16.6.1",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "prisma": "^6.2.0",
+    "@types/pg": "^8.23.1",
+    "prisma": "^7.10.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
