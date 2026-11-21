@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession, hasRole } from '@/lib/auth';
 import { prisma } from '@wcos/db';
 
-// ─── Payments CSV Export Endpoint ────────────────────────────────
+// ─── Payments CSV Export Endpoint (RBAC: OWNER / STORE_MANAGER) ───
 // GET /api/payments/export
-// Returns a CSV of all payment transactions for this tenant.
-// Supports query params: gateway, status, dateFrom, dateTo
+
+const FORMULA_PREFIX_REGEX = /^[=+\-@\t\r]/;
+
+function sanitizeAndEscapeCsv(val: string | number | null | undefined): string {
+  if (val === null || val === undefined) return '';
+  let str = String(val);
+  // Prevent Excel/Sheets CSV formula injection
+  if (FORMULA_PREFIX_REGEX.test(str)) {
+    str = `'${str}`;
+  }
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
 
 export async function GET(req: NextRequest) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER'])) {
+    return NextResponse.json({ error: 'Forbidden: Only Owner or Store Manager can export payments' }, { status: 403 });
   }
 
   const { searchParams } = req.nextUrl;
@@ -21,19 +35,11 @@ export async function GET(req: NextRequest) {
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
 
-  // Build where clause
-  type WhereInput = {
-    tenantId: string;
-    paymentMethod?: { startsWith: string } | string;
-    status?: string | { in: string[] };
-    createdAt?: { gte?: Date; lte?: Date };
-  };
+  const where: Record<string, any> = { tenantId: session.tenantId };
 
-  const where: WhereInput = { tenantId: session.tenantId };
-
-  if (gateway === 'RAZORPAY') where.paymentMethod = { startsWith: 'RAZORPAY' };
-  else if (gateway === 'PHONEPE') where.paymentMethod = { startsWith: 'PHONEPE' };
-  else if (gateway === 'COD') where.paymentMethod = 'CASH_ON_DELIVERY';
+  if (gateway === 'RAZORPAY') where.paymentMethod = 'RAZORPAY_ONLINE';
+  else if (gateway === 'PHONEPE') where.paymentMethod = 'PHONEPE_ONLINE';
+  else if (gateway === 'COD') where.paymentMethod = 'COD';
 
   if (status) {
     where.status = status;
@@ -45,14 +51,26 @@ export async function GET(req: NextRequest) {
 
   if (dateFrom || dateTo) {
     where.createdAt = {};
-    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-    if (dateTo) where.createdAt.lte = new Date(dateTo);
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      if (Number.isNaN(fromDate.getTime())) {
+        return NextResponse.json({ error: 'Invalid dateFrom parameter' }, { status: 400 });
+      }
+      where.createdAt.gte = fromDate;
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      if (Number.isNaN(toDate.getTime())) {
+        return NextResponse.json({ error: 'Invalid dateTo parameter' }, { status: 400 });
+      }
+      where.createdAt.lte = toDate;
+    }
   }
 
   const orders = await prisma.order.findMany({
-    where: where as any,
+    where,
     orderBy: { createdAt: 'desc' },
-    take: 5000, // Safety cap
+    take: 5000,
     select: {
       orderNumber: true,
       customerName: true,
@@ -68,7 +86,6 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Build CSV
   const headers = [
     'Order Number',
     'Customer Name',
@@ -82,15 +99,6 @@ export async function GET(req: NextRequest) {
     'Created At',
     'Updated At',
   ];
-
-  function escapeCsv(val: string | number | null | undefined): string {
-    if (val === null || val === undefined) return '';
-    const str = String(val);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  }
 
   const rows = orders.map((o) =>
     [
@@ -106,7 +114,7 @@ export async function GET(req: NextRequest) {
       o.createdAt.toISOString(),
       o.updatedAt.toISOString(),
     ]
-      .map(escapeCsv)
+      .map(sanitizeAndEscapeCsv)
       .join(',')
   );
 
@@ -118,6 +126,7 @@ export async function GET(req: NextRequest) {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-store',
     },
   });

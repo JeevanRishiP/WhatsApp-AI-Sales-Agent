@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession } from '@/lib/auth';
 import { prisma } from '@wcos/db';
 import { toggleAiAgent } from '@/lib/dal/settings';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  try {
-    const session = await getSession();
-    if (!session?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+const ToggleSchema = z.object({
+  enabled: z.boolean(),
+});
 
+export async function GET() {
+  const session = await verifySession();
+  if (!session?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: session.tenantId },
-      select: { aiConfig: true },
+      select: { aiConfig: true, ownerPhone: true },
     });
 
     const aiConfig = (tenant?.aiConfig as Record<string, any>) || {};
@@ -23,28 +28,35 @@ export async function GET() {
 
     return NextResponse.json({
       aiAgentEnabled,
-      offlineSupportPhone: aiConfig.offlineSupportPhone || '8105845527',
+      offlineSupportPhone: aiConfig.offlineSupportPhone || tenant?.ownerPhone || null,
       offlineMessage: aiConfig.offlineMessage || null,
     });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || 'Failed to fetch AI agent status' },
+      { error: 'Failed to fetch AI agent status' },
       { status: 500 }
     );
   }
 }
 
 export async function POST(req: NextRequest) {
+  const session = await verifySession();
+  if (!session?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (session.role !== 'OWNER' && session.role !== 'STORE_MANAGER') {
+    return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 });
+  }
+
   try {
-    const session = await getSession();
-    if (!session?.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const rawBody = await req.json();
+    const parsed = ToggleSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid payload: enabled boolean required' }, { status: 400 });
     }
 
-    const body = await req.json();
-    const enabled = Boolean(body.enabled);
-
-    const updated = await toggleAiAgent(session.tenantId, enabled);
+    const updated = await toggleAiAgent(session.tenantId, parsed.data.enabled);
 
     revalidatePath('/', 'layout');
     revalidatePath('/settings');
@@ -56,7 +68,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || 'Failed to toggle AI agent status' },
+      { error: 'Failed to toggle AI agent status' },
       { status: 500 }
     );
   }

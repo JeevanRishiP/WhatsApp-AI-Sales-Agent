@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { verifySession, hasRole } from '@/lib/auth';
 import { prisma } from '@wcos/db';
 import { z } from 'zod';
 
-// ─── Bulk Stock Adjustment Endpoint ────────────────────────────────
+// ─── Atomic Bulk Stock Adjustment Endpoint ────────────────────────
 // POST /api/inventory/stock-adjust
-// Body: { adjustments: [{ productId, delta, note }] }
-//
-// delta > 0 = add stock, delta < 0 = remove stock
-// Enforces tenantId ownership before updating.
+// Aggregates duplicate productId deltas and applies conditional SQL updates atomically.
 
 const AdjustmentSchema = z.object({
   adjustments: z
     .array(
       z.object({
         productId: z.string().uuid('Invalid product ID'),
-        delta: z.number().int('Delta must be an integer'),
+        delta: z.number().int('Delta must be an integer').min(-10000).max(10000),
         note: z.string().max(200).optional(),
       })
     )
@@ -24,11 +21,12 @@ const AdjustmentSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  let session;
-  try {
-    session = await getSession();
-  } catch {
+  const session = await verifySession();
+  if (!session?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasRole(session, ['OWNER', 'STORE_MANAGER', 'FULFILLMENT_LEAD'])) {
+    return NextResponse.json({ error: 'Forbidden: Insufficient permissions' }, { status: 403 });
   }
 
   let body: unknown;
@@ -46,88 +44,104 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { adjustments } = parsed.data;
-  const productIds = adjustments.map((a) => a.productId);
-
-  // Verify all products belong to this tenant
-  const ownedProducts = await prisma.product.findMany({
-    where: { id: { in: productIds }, tenantId: session.tenantId },
-    select: { id: true, stock: true, name: true, status: true },
-  });
-
-  const ownedIds = new Set(ownedProducts.map((p) => p.id));
-  const unauthorized = productIds.filter((id) => !ownedIds.has(id));
-  if (unauthorized.length > 0) {
-    return NextResponse.json(
-      { error: `Product(s) not found or not owned: ${unauthorized.join(', ')}` },
-      { status: 403 }
-    );
+  // Aggregate duplicate productId entries into net deltas
+  const aggregated = new Map<string, { netDelta: number; notes: string[] }>();
+  for (const adj of parsed.data.adjustments) {
+    const prev = aggregated.get(adj.productId) || { netDelta: 0, notes: [] };
+    prev.netDelta += adj.delta;
+    if (adj.note) prev.notes.push(adj.note);
+    aggregated.set(adj.productId, prev);
   }
 
-  // Validate no stock goes below zero
-  const stockMap = new Map(ownedProducts.map((p) => [p.id, p.stock]));
-  for (const adj of adjustments) {
-    const currentStock = stockMap.get(adj.productId) ?? 0;
-    if (currentStock + adj.delta < 0) {
-      const product = ownedProducts.find((p) => p.id === adj.productId);
+  const productIds = Array.from(aggregated.keys());
+
+  try {
+    const results = await prisma.$transaction(async (tx) => {
+      const ownedProducts = await tx.product.findMany({
+        where: { id: { in: productIds }, tenantId: session.tenantId },
+        select: { id: true, name: true, stock: true, status: true },
+      });
+
+      if (ownedProducts.length !== productIds.length) {
+        throw new Error('OWNERSHIP_OR_NOT_FOUND');
+      }
+
+      const updatedProducts: Array<{
+        id: string;
+        code: string;
+        name: string;
+        stock: number;
+        status: string;
+      }> = [];
+
+      for (const product of ownedProducts) {
+        const entry = aggregated.get(product.id)!;
+        const delta = entry.netDelta;
+        if (delta === 0) continue;
+
+        // Conditional atomic update guarantees stock never drops below zero or reserved under concurrency
+        const affected = await tx.$executeRaw`
+          UPDATE "Product"
+          SET stock = stock + ${delta},
+              status = CASE
+                WHEN stock + ${delta} = 0 AND status = 'ACTIVE' THEN 'OUT_OF_STOCK'::"ProductStatus"
+                WHEN stock + ${delta} > 0 AND status = 'OUT_OF_STOCK' THEN 'ACTIVE'::"ProductStatus"
+                ELSE status
+              END,
+              "updatedAt" = NOW()
+          WHERE id = ${product.id}::uuid
+            AND "tenantId" = ${session.tenantId}::uuid
+            AND stock + ${delta} >= reserved
+            AND stock + ${delta} >= 0
+        `;
+
+        if (affected !== 1) {
+          throw new Error(`INSUFFICIENT_STOCK:${product.name}`);
+        }
+
+        const refreshed = await tx.product.findUniqueOrThrow({
+          where: { id: product.id },
+          select: { id: true, code: true, name: true, stock: true, status: true },
+        });
+        updatedProducts.push(refreshed);
+      }
+
+      await tx.auditLog.createMany({
+        data: parsed.data.adjustments.map((adj) => ({
+          tenantId: session.tenantId,
+          actorId: session.staffId || session.email || 'dashboard_staff',
+          actorType: 'HUMAN',
+          action: 'STOCK_ADJUSTED',
+          resourceId: adj.productId,
+          metadata: {
+            delta: adj.delta,
+            note: adj.note || null,
+            performedBy: session.email,
+            role: session.role,
+            timestamp: new Date().toISOString(),
+          },
+        })),
+      });
+
+      return updatedProducts;
+    });
+
+    return NextResponse.json({
+      success: true,
+      updated: results.length,
+      products: results,
+    });
+  } catch (err: any) {
+    if (err.message === 'OWNERSHIP_OR_NOT_FOUND') {
+      return NextResponse.json({ error: 'One or more products not found or unauthorized' }, { status: 403 });
+    }
+    if (typeof err.message === 'string' && err.message.startsWith('INSUFFICIENT_STOCK:')) {
+      const name = err.message.slice('INSUFFICIENT_STOCK:'.length);
       return NextResponse.json(
-        {
-          error: `Insufficient stock for "${product?.name}". Current: ${currentStock}, requested delta: ${adj.delta}`,
-        },
+        { error: `Insufficient available stock for "${name}" after accounting for active reservations.` },
         { status: 422 }
       );
     }
+    return NextResponse.json({ error: 'Stock adjustment failed' }, { status: 500 });
   }
-
-  // Apply all adjustments and synchronize product status in a single transaction
-  const results = await prisma.$transaction(
-    adjustments.map((adj) => {
-      const product = ownedProducts.find((p) => p.id === adj.productId);
-      const currentStock = product?.stock ?? 0;
-      const newStock = currentStock + adj.delta;
-
-      let newStatus = product?.status;
-      if (newStock === 0 && product?.status === 'ACTIVE') {
-        newStatus = 'OUT_OF_STOCK';
-      } else if (newStock > 0 && product?.status === 'OUT_OF_STOCK') {
-        newStatus = 'ACTIVE';
-      }
-
-      return prisma.product.update({
-        where: { id: adj.productId },
-        data: {
-          stock: newStock,
-          ...(newStatus !== product?.status ? { status: newStatus } : {}),
-        },
-        select: { id: true, code: true, name: true, stock: true, status: true },
-      });
-    })
-  );
-
-  // Log to audit log
-  try {
-    await prisma.auditLog.createMany({
-      data: adjustments.map((adj) => ({
-        tenantId: session.tenantId,
-        actorId: session.email || 'dashboard_owner',
-        actorType: 'HUMAN',
-        action: 'STOCK_ADJUSTED',
-        resourceId: adj.productId,
-        metadata: {
-          delta: adj.delta,
-          note: adj.note || null,
-          performedBy: session.email || 'dashboard_owner',
-          timestamp: new Date().toISOString(),
-        },
-      })),
-    });
-  } catch {
-    // Non-critical — proceed even if audit log fails
-  }
-
-  return NextResponse.json({
-    success: true,
-    updated: results.length,
-    products: results,
-  });
 }
