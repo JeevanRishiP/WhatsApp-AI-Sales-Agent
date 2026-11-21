@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { prisma } from '@wcos/db';
-import { getRedisConnection } from '@wcos/queue';
-import { sha256 } from '@wcos/crypto';
+import { getRedisCacheConnection } from '@wcos/queue';
+import { computeHmacSha256, timingSafeCompare } from '@wcos/crypto';
 import { config } from '../config.js';
 import { EvolutionService } from './evolution-service.js';
 
@@ -10,6 +10,8 @@ const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_RATE_LIMIT_SECONDS = 600; // 10 minutes
 const MAX_OTP_PER_WINDOW = 3;
 const MAX_ATTEMPTS = 3;
+const MAGIC_LINK_TTL_SECONDS = 900; // 15 minutes
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface CustomerTokenPayload extends JWTPayload {
   customerId: string;
@@ -35,57 +37,33 @@ export class CustomerAuthService {
   }
 
   /**
-   * Resolves a tenant by either slug, ID, or fallback (defaults to Aura Luxe Boutique).
+   * Strictly resolves an ACTIVE tenant by slug, UUID id, WhatsApp instance name, or custom domain.
    */
   static async resolveTenant(identifier: string) {
-    const normalized = (identifier || '').toLowerCase().trim();
-    const isAura =
-      normalized === 'aura' ||
-      normalized === 'aura-luxe' ||
-      normalized === 'aura-saree-shop' ||
-      normalized === 'aura-archived' ||
-      normalized === 'demo' ||
-      normalized === 'wa_aura_luxe_01' ||
-      !normalized;
-
-    if (isAura) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: '11111111-1111-4111-8111-111111111111' },
-      });
-      if (tenant) return tenant;
+    const raw = (identifier || '').trim();
+    const normalized = raw.toLowerCase();
+    if (!normalized) {
+      throw new Error('Store identifier is required');
     }
 
-    let tenant = await prisma.tenant.findFirst({
+    const orClauses: any[] = [
+      { slug: normalized },
+      { whatsappInstanceName: raw },
+      { customDomain: normalized },
+    ];
+    if (UUID_REGEX.test(raw)) {
+      orClauses.push({ id: raw });
+    }
+
+    const tenant = await prisma.tenant.findFirst({
       where: {
-        OR: [
-          { slug: normalized },
-          { id: identifier.length === 36 ? identifier : undefined },
-          { whatsappInstanceName: identifier },
-        ].filter(Boolean) as any,
+        status: 'ACTIVE',
+        OR: orClauses,
       },
     });
 
-    if (!tenant && isAura) {
-      tenant = await prisma.tenant.upsert({
-        where: { id: '11111111-1111-4111-8111-111111111111' },
-        update: { slug: 'aura-luxe', whatsappInstanceName: 'wa_aura_luxe_01' },
-        create: {
-          id: '11111111-1111-4111-8111-111111111111',
-          name: 'Aura Luxe Boutique',
-          slug: 'aura-luxe',
-          ownerName: 'Aditi Sharma',
-          ownerPhone: '+919876543210',
-          ownerEmail: 'aditi@auraluxe.in',
-          businessCategory: 'Luxury Ethnic Wear & Sarees',
-          status: 'ACTIVE',
-          apiKey: 'sk_live_aura_8f92jkl2309x',
-          whatsappInstanceName: 'wa_aura_luxe_01',
-        },
-      });
-    }
-
     if (!tenant) {
-      throw new Error(`Store with identifier "${identifier}" not found`);
+      throw new Error(`Active store with identifier "${identifier}" not found`);
     }
 
     return tenant;
@@ -102,7 +80,15 @@ export class CustomerAuthService {
       throw new Error('Please enter a valid international mobile number');
     }
 
-    const redis = getRedisConnection();
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { tenantId_phone: { tenantId: tenant.id, phone } },
+      select: { riskStatus: true },
+    });
+    if (existingCustomer?.riskStatus === 'BLOCKED') {
+      throw new Error('This account has been restricted. Please contact store support.');
+    }
+
+    const redis = getRedisCacheConnection();
     const rateKey = `otp:rate:${tenant.id}:${phone}`;
     const requestCount = await redis.incr(rateKey);
 
@@ -112,40 +98,27 @@ export class CustomerAuthService {
 
     if (requestCount > MAX_OTP_PER_WINDOW) {
       const ttl = await redis.ttl(rateKey);
-      throw new Error(`Too many verification attempts. Please wait ${Math.ceil(ttl / 60)} minute(s) before requesting again.`);
+      throw new Error(`Too many verification attempts. Please wait ${Math.ceil(Math.max(1, ttl) / 60)} minute(s) before requesting again.`);
     }
 
-    // Generate secure 6-digit numeric OTP
+    // Generate cryptographically random 6-digit OTP and server-keyed HMAC digest
     const otp = crypto.randomInt(100000, 1000000).toString();
-    const hashedOtp = sha256(`${tenant.id}:${phone}:${otp}`);
+    const hashedOtp = computeHmacSha256(`${tenant.id}:${phone}:${otp}`, config.JWT_SECRET);
 
     const otpKey = `otp:${tenant.id}:${phone}`;
-    await redis.set(
-      otpKey,
-      JSON.stringify({
-        hash: hashedOtp,
-        attempts: 0,
-        createdAt: Date.now(),
-      }),
-      'EX',
-      OTP_TTL_SECONDS
-    );
+    const attemptsKey = `otp:attempts:${tenant.id}:${phone}`;
+    await redis.set(otpKey, hashedOtp, 'EX', OTP_TTL_SECONDS);
+    await redis.set(attemptsKey, '0', 'EX', OTP_TTL_SECONDS);
 
-    // Compose luxury WhatsApp template
     const message = `*${otp}* is your verification code for *${tenant.name}*.\n\n` +
       `Valid for 5 minutes. Enter this code on the website to securely access your orders and private boutique bag.\n\n` +
       `_Do not share this code with anyone._`;
 
-    // Dispatch via store's WhatsApp Evolution API instance
-    const dispatched = await EvolutionService.sendTextMessage(tenant.whatsappInstanceName, phone, message);
+    await EvolutionService.sendTextMessage(tenant.whatsappInstanceName, phone, message);
 
-    // In development / testing, log the code to console so work is never blocked if WhatsApp instance is unlinked
-    if (config.NODE_ENV !== 'production' || !dispatched) {
-      console.log(`\n======================================================`);
-      console.log(`🔑 [DEV-WHATSAPP-OTP] Store: ${tenant.name}`);
-      console.log(`📱 Phone: +${phone}`);
-      console.log(`⚡ OTP CODE: ${otp}`);
-      console.log(`======================================================\n`);
+    // Strictly log plaintext OTP only in explicit non-production local environments
+    if (config.NODE_ENV !== 'production') {
+      console.log(`[DEV-WHATSAPP-OTP] Store: ${tenant.name} | Phone: +${phone} | OTP: ${otp}`);
     }
 
     return {
@@ -156,43 +129,50 @@ export class CustomerAuthService {
   }
 
   /**
-   * Verifies the 6-digit OTP and generates an authenticated customer session.
+   * Verifies the 6-digit OTP atomically (prevents concurrent brute-force races)
+   * and generates an authenticated customer session.
    */
   static async verifyOtp(tenantSlug: string, rawPhone: string, code: string) {
     const tenant = await this.resolveTenant(tenantSlug);
     const phone = this.cleanPhone(rawPhone);
 
-    const redis = getRedisConnection();
+    const redis = getRedisCacheConnection();
     const otpKey = `otp:${tenant.id}:${phone}`;
-    const rawData = await redis.get(otpKey);
+    const attemptsKey = `otp:attempts:${tenant.id}:${phone}`;
 
-    if (!rawData) {
+    const storedHash = await redis.get(otpKey);
+    if (!storedHash) {
       throw new Error('Verification code has expired or is invalid. Please request a new code.');
     }
 
-    const otpData = JSON.parse(rawData);
+    // Atomic Redis INCR eliminates parallel brute-force race conditions
+    const attemptNum = await redis.incr(attemptsKey);
+    if (attemptNum === 1) {
+      const ttl = await redis.ttl(otpKey);
+      if (ttl > 0) await redis.expire(attemptsKey, ttl);
+    }
 
-    if (otpData.attempts >= MAX_ATTEMPTS) {
-      await redis.del(otpKey);
+    if (attemptNum > MAX_ATTEMPTS) {
+      await redis.del(otpKey, attemptsKey);
       throw new Error('Maximum verification attempts exceeded. Please request a new code.');
     }
 
-    const providedHash = sha256(`${tenant.id}:${phone}:${code.trim()}`);
+    const providedHash = computeHmacSha256(
+      `${tenant.id}:${phone}:${code.trim()}`,
+      config.JWT_SECRET
+    );
 
-    if (providedHash !== otpData.hash) {
-      otpData.attempts += 1;
-      const remainingTtl = await redis.ttl(otpKey);
-      if (remainingTtl > 0) {
-        await redis.set(otpKey, JSON.stringify(otpData), 'EX', remainingTtl);
+    if (!timingSafeCompare(providedHash, storedHash)) {
+      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - attemptNum);
+      if (attemptsLeft === 0) {
+        await redis.del(otpKey, attemptsKey);
       }
-      const attemptsLeft = MAX_ATTEMPTS - otpData.attempts;
       throw new Error(`Incorrect verification code. ${attemptsLeft} attempt(s) remaining.`);
     }
 
-    // OTP matched! Clean up Redis key immediately
-    await redis.del(otpKey);
+    // OTP matched! Clean up Redis keys immediately
+    await redis.del(otpKey, attemptsKey);
 
-    // Upsert or retrieve customer entity in Postgres
     const phoneVariants = [
       phone,
       `+${phone.replace(/^\+/, '')}`,
@@ -215,7 +195,10 @@ export class CustomerAuthService {
       },
     });
 
-    // Check if CustomerMemory already exists from previous WhatsApp bot chats to inherit customerName
+    if (customer?.riskStatus === 'BLOCKED') {
+      throw new Error('This account has been restricted. Please contact store support.');
+    }
+
     const memory = await prisma.customerMemory.findFirst({
       where: {
         tenantId: tenant.id,
@@ -242,7 +225,6 @@ export class CustomerAuthService {
       });
     }
 
-    // Automatically link all previous WhatsApp orders to this customer record
     await prisma.order.updateMany({
       where: {
         tenantId: tenant.id,
@@ -253,7 +235,6 @@ export class CustomerAuthService {
       },
     });
 
-    // Generate JWT token (30 days validity)
     const token = await new SignJWT({
       customerId: customer.id,
       tenantId: tenant.id,
@@ -284,33 +265,60 @@ export class CustomerAuthService {
   }
 
   /**
-   * Creates a single-use 15-minute magic login link token for WhatsApp chat injection.
+   * Creates a strictly single-use 15-minute magic login link token tracked by Redis jti.
    */
-  static async createMagicLinkToken(tenantId: string, phone: string, redirectPath = '/account'): Promise<string> {
+  static async createMagicLinkToken(
+    tenantId: string,
+    phone: string,
+    redirectPath = '/account'
+  ): Promise<string> {
     const cleanNumber = this.cleanPhone(phone);
+    const jti = crypto.randomUUID();
+    const redis = getRedisCacheConnection();
+    await redis.set(`magic:jti:${jti}`, `${tenantId}:${cleanNumber}`, 'EX', MAGIC_LINK_TTL_SECONDS);
+
     return new SignJWT({
       tenantId,
       phone: cleanNumber,
       redirectPath,
+      jti,
       type: 'magic_login',
     })
       .setProtectedHeader({ alg: 'HS256' })
+      .setJti(jti)
       .setIssuedAt()
-      .setExpirationTime('15m')
+      .setExpirationTime(`${MAGIC_LINK_TTL_SECONDS}s`)
       .sign(getSecretKey());
   }
 
   /**
-   * Resolves a magic login link token.
+   * Resolves and atomically consumes a single-use magic login link token.
    */
   static async resolveMagicLinkToken(token: string) {
     const { payload } = await jwtVerify(token, getSecretKey());
-    if (payload['type'] !== 'magic_login') {
+    if (payload['type'] !== 'magic_login' || typeof payload['jti'] !== 'string') {
       throw new Error('Invalid magic token');
     }
 
     const tenantId = payload['tenantId'] as string;
     const phone = payload['phone'] as string;
+    const jti = payload['jti'] as string;
+
+    // Single-use enforcement: DEL returns 1 only for the first caller
+    const redis = getRedisCacheConnection();
+    const consumed = await redis.del(`magic:jti:${jti}`);
+    if (consumed !== 1) {
+      throw new Error('Magic login link has already been used or expired');
+    }
+
+    // Verify tenant is ACTIVE
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!tenant) {
+      throw new Error('Store is currently inactive');
+    }
 
     const customer = await prisma.customer.upsert({
       where: {
@@ -329,6 +337,10 @@ export class CustomerAuthService {
       },
     });
 
+    if (customer.riskStatus === 'BLOCKED') {
+      throw new Error('This account has been restricted');
+    }
+
     const sessionToken = await new SignJWT({
       customerId: customer.id,
       tenantId,
@@ -343,7 +355,10 @@ export class CustomerAuthService {
     return {
       customer,
       token: sessionToken,
-      redirectPath: (payload['redirectPath'] as string) || '/account',
+      redirectPath:
+        typeof payload['redirectPath'] === 'string' && payload['redirectPath'].startsWith('/')
+          ? payload['redirectPath']
+          : '/account',
     };
   }
 }
