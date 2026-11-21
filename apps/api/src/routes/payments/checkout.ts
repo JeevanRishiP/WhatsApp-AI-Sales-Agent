@@ -2,12 +2,27 @@ import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { notifyOrderPaymentConfirmed } from '../../services/payment-notifications.js';
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── 1. Hosted Sandbox Checkout Page ────────────────────────────
   fastify.get<{ Params: { orderId: string } }>(
     '/payments/checkout/:orderId',
     async (request, reply) => {
       const { orderId } = request.params;
+      if (!UUID_REGEX.test(orderId)) {
+        return reply.status(400).send({ error: 'Invalid order ID' });
+      }
 
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -79,12 +94,19 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
         .map(
           (it) => `
           <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #334155; font-size: 0.875rem;">
-            <span>${it.productName} <strong style="color: #94a3b8;">x${it.quantity}</strong></span>
+            <span>${escapeHtml(it.productName)} <strong style="color: #94a3b8;">x${it.quantity}</strong></span>
             <span style="font-weight: 600;">₹${Number(it.totalAtOrder).toFixed(2)}</span>
           </div>
         `
         )
         .join('');
+
+      const safeOrderNumber = escapeHtml(order.orderNumber);
+      const safeTenantName = escapeHtml(order.tenant.name);
+      const safeCustomerPhone = escapeHtml(order.customerPhone);
+      const safePaymentRef = escapeHtml(
+        order.razorpayPaymentId || 'pay_test_' + order.id.slice(0, 8)
+      );
 
       const html = `
         <!DOCTYPE html>
@@ -92,7 +114,7 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Razorpay Sandbox Checkout — ${order.orderNumber}</title>
+            <title>Razorpay Sandbox Checkout — ${safeOrderNumber}</title>
             <style>
               * { box-sizing: border-box; }
               body {
@@ -258,8 +280,8 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
               <div class="content">
                 <div class="merchant-info">
                   <div>
-                    <div class="merchant-name">${order.tenant.name}</div>
-                    <div class="order-ref">Order #${order.orderNumber}</div>
+                    <div class="merchant-name">${safeTenantName}</div>
+                    <div class="order-ref">Order #${safeOrderNumber}</div>
                   </div>
                   <div class="amount-display">
                     <div class="amount-label">Amount Payable</div>
@@ -285,10 +307,10 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
                     <div class="paid-icon">🎉</div>
                     <h2 style="color: #22c55e; margin: 0 0 8px 0; font-size: 1.25rem;">Payment Already Confirmed</h2>
                     <p style="color: #94a3b8; font-size: 0.875rem; margin: 0 0 16px 0;">
-                      Reference ID: <code style="color: #38bdf8;">${order.razorpayPaymentId || 'pay_test_' + order.id.slice(0, 8)}</code>
+                      Reference ID: <code style="color: #38bdf8;">${safePaymentRef}</code>
                     </p>
                     <p style="color: #64748b; font-size: 0.8125rem;">
-                      Your order has been confirmed and WhatsApp notifications have been dispatched to <strong>${order.customerPhone}</strong>.
+                      Your order has been confirmed and WhatsApp notifications have been dispatched to <strong>${safeCustomerPhone}</strong>.
                     </p>
                   </div>
                 `
@@ -329,6 +351,11 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
             </div>
 
             <script>
+              function esc(s) {
+                return String(s ?? '').replace(/[&<>"']/g, function(c) {
+                  return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c];
+                });
+              }
               async function simulatePayment(method) {
                 const actionsEl = document.getElementById('payment-actions');
                 const statusEl = document.getElementById('status-container');
@@ -338,7 +365,7 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
                 if (statusEl) statusEl.style.display = 'block';
 
                 try {
-                  const res = await fetch('/payments/checkout/${order.id}/simulate', {
+                  const res = await fetch('/payments/checkout/${encodeURIComponent(order.id)}/simulate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ method }),
@@ -350,10 +377,10 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
                       <div style="font-size: 3rem; margin-bottom: 8px;">✅</div>
                       <h2 style="color: #22c55e; margin: 0 0 8px 0; font-size: 1.25rem;">Payment Successful!</h2>
                       <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 16px;">
-                        Payment ID: <strong style="color: #38bdf8;">\${data.paymentId}</strong>
+                        Payment ID: <strong style="color: #38bdf8;">\${esc(data.paymentId)}</strong>
                       </p>
                       <p style="color: #64748b; font-size: 0.8125rem;">
-                        Order #${order.orderNumber} is now <strong>PAYMENT_CONFIRMED</strong>. Real-time WhatsApp confirmation sent to ${order.customerPhone}!
+                        Order #${safeOrderNumber} is now <strong>PAYMENT_CONFIRMED</strong>. Real-time WhatsApp confirmation sent to ${safeCustomerPhone}!
                       </p>
                     \`;
                   } else {
@@ -361,7 +388,7 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
                       <div style="font-size: 3rem; margin-bottom: 8px;">❌</div>
                       <h2 style="color: #ef4444; margin: 0 0 8px 0; font-size: 1.25rem;">Payment Failed (Simulated)</h2>
                       <p style="color: #94a3b8; font-size: 0.875rem; margin-bottom: 16px;">
-                        \${data.error || 'The customer bank declined the transaction.'}
+                        \${esc(data.error || 'The customer bank declined the transaction.')}
                       </p>
                       <button class="btn-action btn-card" onclick="window.location.reload()">Try Again</button>
                     \`;
@@ -391,6 +418,9 @@ export const checkoutPaymentRoutes: FastifyPluginAsync = async (fastify) => {
     '/payments/checkout/:orderId/simulate',
     async (request, reply) => {
       const { orderId } = request.params;
+      if (!UUID_REGEX.test(orderId)) {
+        return reply.status(400).send({ error: 'Invalid order ID' });
+      }
       const { method = 'upi' } = request.body || {};
 
       const order = await prisma.order.findUnique({
