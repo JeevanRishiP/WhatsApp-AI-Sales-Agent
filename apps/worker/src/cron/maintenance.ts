@@ -17,31 +17,40 @@ export async function processOutboxBatch(): Promise<number> {
     return 0;
   }
 
+  let dispatched = 0;
+
   for (const event of pendingEvents) {
     try {
-      // In production, publish to external webhook, message bus, or Kafka
-      logger.info(
-        { eventId: event.id, aggregateId: event.aggregateId, eventType: event.eventType },
-        'Dispatched outbox event'
-      );
-
-      await prisma.outboxEvent.update({
-        where: { id: event.id },
+      // Atomic Compare-And-Swap claim so concurrent worker pods never dispatch twice
+      const claimed = await prisma.outboxEvent.updateMany({
+        where: { id: event.id, status: 'PENDING' },
         data: {
           status: 'PROCESSED',
           processedAt: new Date(),
         },
       });
+      if (claimed.count === 0) {
+        continue;
+      }
+
+      // In production, publish to external webhook, message bus, or Kafka
+      logger.info(
+        { eventId: event.id, aggregateId: event.aggregateId, eventType: event.eventType },
+        'Dispatched outbox event'
+      );
+      dispatched += 1;
     } catch (err: any) {
       logger.error({ eventId: event.id, err: err.message }, 'Failed to dispatch outbox event');
-      await prisma.outboxEvent.update({
-        where: { id: event.id },
-        data: { status: 'FAILED' },
-      });
+      await prisma.outboxEvent
+        .updateMany({
+          where: { id: event.id },
+          data: { status: 'FAILED' },
+        })
+        .catch(() => {});
     }
   }
 
-  return pendingEvents.length;
+  return dispatched;
 }
 
 /**
@@ -61,35 +70,44 @@ export async function cleanupExpiredReservations(): Promise<number> {
     return 0;
   }
 
+  let releasedCount = 0;
+
   for (const reservation of expired) {
     try {
-      await prisma.$transaction(async (tx) => {
-        await tx.inventoryReservation.update({
-          where: { id: reservation.id },
+      const released = await prisma.$transaction(async (tx) => {
+        const claimed = await tx.inventoryReservation.updateMany({
+          where: { id: reservation.id, status: 'ACTIVE' },
           data: { status: 'EXPIRED' },
         });
+        if (claimed.count === 0) {
+          return false;
+        }
 
         const items = Array.isArray(reservation.items)
           ? (reservation.items as Array<{ productId: string; quantity: number }>)
           : [];
 
         for (const item of items) {
-          if (item.productId && typeof item.quantity === 'number') {
-            await tx.product.update({
-              where: { id: item.productId },
-              data: {
-                reserved: { decrement: item.quantity },
-              },
-            });
+          const qty = Math.max(0, Math.floor(Number(item.quantity || 0)));
+          if (item.productId && qty > 0) {
+            await tx.$executeRaw`
+              UPDATE "Product"
+              SET "reserved" = GREATEST(0, "reserved" - ${qty})
+              WHERE id = ${item.productId}::uuid
+            `;
           }
         }
+        return true;
       });
 
-      logger.info({ reservationId: reservation.id }, 'Released expired inventory reservation');
+      if (released) {
+        releasedCount += 1;
+        logger.info({ reservationId: reservation.id }, 'Released expired inventory reservation');
+      }
     } catch (err: any) {
       logger.error({ reservationId: reservation.id, err: err.message }, 'Failed to release reservation');
     }
   }
 
-  return expired.length;
+  return releasedCount;
 }
