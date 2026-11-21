@@ -1,11 +1,12 @@
+import crypto from 'node:crypto';
 import { prisma } from '@wcos/db';
+import { CartService } from '@wcos/queue';
 import {
   type LLMAction,
   getDelhiveryLiveTrackingStatus,
   formatDelhiveryWhatsAppTrackingReply,
 } from '@wcos/types';
 import {
-  razorpayService,
   paymentGatewayRouter,
   normalizePaymentUrl,
   type CustomerPlatform,
@@ -20,29 +21,66 @@ export interface ToolExecutionResult {
   newStage?: any;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function syncWhatsAppCartToRedis(
+  tenantId: string,
+  customerPhone: string,
+  cart: StoredCart
+): Promise<void> {
+  try {
+    if (cart.items.length === 0) {
+      await CartService.clearCart(tenantId, customerPhone, 'wa');
+      return;
+    }
+    const cleanDigits = customerPhone.replace(/[^0-9]/g, '');
+    const now = new Date();
+    await CartService.saveCart(
+      {
+        id: cart.reservationId || crypto.randomUUID(),
+        tenantId,
+        customerPhone: cleanDigits,
+        channel: 'wa',
+        items: cart.items.map((item) => ({
+          productId: item.productId,
+          productCode: item.productCode,
+          productName: item.name,
+          quantity: item.quantity,
+          priceAtAdd: item.price,
+          imageUrl: item.imageUrl,
+          source: 'whatsapp',
+          addedAt: now,
+        })),
+        subtotal: Number(cart.subtotal.toFixed(2)),
+        currency: 'INR',
+        itemCount: cart.items.reduce((s, i) => s + i.quantity, 0),
+        createdAt: now,
+        lastActivityAt: now,
+        expiresAt: new Date(now.getTime() + 72 * 3600 * 1000),
+      },
+      customerPhone
+    );
+  } catch (err: any) {
+    console.warn('[ExecutionEngine] Non-fatal Redis cart sync warning:', err.message);
+  }
+}
+
 async function findProductByCode(tenantId: string, inputCode: string) {
   if (!inputCode) return null;
   const normalized = inputCode.toUpperCase().trim();
-  let product = await prisma.product.findUnique({
+  const cleanInput = inputCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  return prisma.product.findFirst({
     where: {
-      tenantId_code: { tenantId, code: normalized },
+      tenantId,
+      status: 'ACTIVE',
+      OR: [
+        { code: normalized },
+        { code: { equals: inputCode.trim(), mode: 'insensitive' } },
+        ...(cleanInput ? [{ codeNormalized: cleanInput }] : []),
+      ],
     },
   });
-
-  if (!product) {
-    const cleanInput = inputCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const candidates = await prisma.product.findMany({
-      where: { tenantId, status: 'ACTIVE' },
-    });
-    product =
-      candidates.find(
-        (p) =>
-          p.code.toUpperCase() === normalized ||
-          p.code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() === cleanInput
-      ) || null;
-  }
-
-  return product;
 }
 
 function formatAddress(addr: any): string {
@@ -213,7 +251,7 @@ export class ToolExecutionEngine {
 
         if (candidates.length === 0) {
           return {
-            reply: `I searched our catalog for "${query}", but couldn't find any direct matches right now. Would you like to check our popular collections like Banarasi Silk, Kanjeevaram, or Paithani sarees? ✨`,
+            reply: `I searched our catalog for "${query}", but couldn't find any direct matches right now. Please tell me the product style, category, or price range you're looking for and I'll find the closest matches! ✨`,
           };
         }
 
@@ -317,22 +355,18 @@ export class ToolExecutionEngine {
           };
         }
 
-        const quantity = Number(action.quantity) || 1;
-        const availableStock = product.stock - product.reserved;
-        if (availableStock < quantity) {
-          return {
-            reply: `Sorry! Only ${Math.max(0, availableStock)} unit(s) of *${product.name}* are available right now.`,
-          };
-        }
+        const rawQty = action.quantity === undefined || action.quantity === null ? 1 : Number(action.quantity);
+        const quantity = Number.isInteger(rawQty) && rawQty >= 1 && rawQty <= 20 ? rawQty : 1;
+
+        // Atomic conditional reserve inside transaction + InventoryReservation TTL tracking
+        const newCart: StoredCart = {
+          items: currentCart.items.map((i) => ({ ...i })),
+          subtotal: currentCart.subtotal,
+          reservationId: currentCart.reservationId,
+        };
 
         const unitPrice = Number(product.salePrice || product.price);
         const mrp = Number(product.price);
-        const newCart: StoredCart = {
-          items: [...currentCart.items],
-          subtotal: currentCart.subtotal,
-        };
-
-        // Check if item already in cart
         const existingIndex = newCart.items.findIndex(
           (i) => i.productCode === product.code || i.productId === product.id
         );
@@ -340,44 +374,88 @@ export class ToolExecutionEngine {
         if (existingIndex >= 0) {
           const item = newCart.items[existingIndex]!;
           item.quantity += quantity;
+          item.price = unitPrice;
           if (!item.mrp) item.mrp = mrp;
         } else {
           newCart.items.push({
             productId: product.id,
             productCode: product.code,
             name: product.name,
-            quantity: quantity,
+            quantity,
             price: unitPrice,
-            mrp: mrp,
+            mrp,
             imageUrl: product.imageUrls[0],
           });
         }
 
-        // Recalculate subtotal
         newCart.subtotal = newCart.items.reduce(
           (sum, i) => sum + i.price * i.quantity,
           0
         );
 
-        // Soft-reserve inventory with 15m TTL in PostgreSQL
-        await prisma.product.update({
-          where: { id: product.id },
-          data: {
-            reserved: { increment: quantity },
-          },
-        });
+        try {
+          await prisma.$transaction(async (tx) => {
+            const affected = await tx.$executeRaw`
+              UPDATE "Product"
+              SET reserved = reserved + ${quantity}, "updatedAt" = NOW()
+              WHERE id = ${product.id}::uuid
+                AND "tenantId" = ${tenantId}::uuid
+                AND status = 'ACTIVE'
+                AND (stock - reserved) >= ${quantity}
+            `;
+            if (affected !== 1) {
+              throw new Error('OUT_OF_STOCK');
+            }
 
-        // Persist updated cart in conversation metadata
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            stage: 'CART_ACTIVE',
-            metadata: {
-              ...(conversation.metadata as object),
-              cart: newCart as any,
-            },
-          },
-        });
+            const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+            const reservationItems = newCart.items.map((it) => ({
+              productId: it.productId,
+              quantity: it.quantity,
+            }));
+
+            let updatedExistingReservation = false;
+            if (newCart.reservationId) {
+              const resUpdate = await tx.inventoryReservation.updateMany({
+                where: { id: newCart.reservationId, tenantId, status: 'ACTIVE' },
+                data: { items: reservationItems, expiresAt },
+              });
+              updatedExistingReservation = resUpdate.count === 1;
+            }
+
+            if (!updatedExistingReservation) {
+              const createdRes = await tx.inventoryReservation.create({
+                data: {
+                  tenantId,
+                  items: reservationItems,
+                  expiresAt,
+                  status: 'ACTIVE',
+                },
+              });
+              newCart.reservationId = createdRes.id;
+            }
+
+            await tx.conversation.update({
+              where: { id: conversation.id },
+              data: {
+                stage: 'CART_ACTIVE',
+                metadata: {
+                  ...(conversation.metadata as object),
+                  cart: newCart as any,
+                },
+              },
+            });
+          });
+        } catch (err: any) {
+          if (err.message === 'OUT_OF_STOCK') {
+            const avail = Math.max(0, product.stock - product.reserved);
+            return {
+              reply: `Sorry! Only ${avail} unit(s) of *${product.name}* are available right now.`,
+            };
+          }
+          throw err;
+        }
+
+        await syncWhatsAppCartToRedis(tenantId, conversation.customerPhone, newCart);
 
         const bill = computeBill(newCart);
         const replyIntro = action.reply?.trim() || `Added *${quantity}x ${product.name}* to your cart! ✨`;
@@ -411,35 +489,59 @@ export class ToolExecutionEngine {
         const newCart: StoredCart = {
           items: currentCart.items.filter((i) => i.productId !== itemToRemove.productId),
           subtotal: 0,
+          reservationId: currentCart.reservationId,
         };
         newCart.subtotal = newCart.items.reduce(
           (sum, i) => sum + i.price * i.quantity,
           0
         );
 
-        // Release soft reservation
-        await prisma.product.update({
-          where: { id: itemToRemove.productId },
-          data: {
-            reserved: { decrement: itemToRemove.quantity },
-          },
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`
+            UPDATE "Product"
+            SET reserved = GREATEST(0, reserved - ${itemToRemove.quantity}), "updatedAt" = NOW()
+            WHERE id = ${itemToRemove.productId}::uuid AND "tenantId" = ${tenantId}::uuid
+          `;
+
+          if (newCart.reservationId) {
+            if (newCart.items.length === 0) {
+              await tx.inventoryReservation.updateMany({
+                where: { id: newCart.reservationId, tenantId, status: 'ACTIVE' },
+                data: { status: 'RELEASED' },
+              });
+              newCart.reservationId = undefined;
+            } else {
+              await tx.inventoryReservation.updateMany({
+                where: { id: newCart.reservationId, tenantId, status: 'ACTIVE' },
+                data: {
+                  items: newCart.items.map((it) => ({
+                    productId: it.productId,
+                    quantity: it.quantity,
+                  })),
+                },
+              });
+            }
+          }
+
+          await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              stage: newCart.items.length > 0 ? 'CART_ACTIVE' : 'BROWSING',
+              metadata: {
+                ...(conversation.metadata as object),
+                cart: newCart as any,
+              },
+            },
+          });
         });
 
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            stage: newCart.items.length > 0 ? 'CART_ACTIVE' : 'BROWSING',
-            metadata: {
-              ...(conversation.metadata as object),
-              cart: newCart as any,
-            },
-          },
-        });
+        await syncWhatsAppCartToRedis(tenantId, conversation.customerPhone, newCart);
 
         if (newCart.items.length === 0) {
           return {
             reply: `Removed *${itemToRemove.name}* from your cart. Your cart is now empty. What would you like to explore next?`,
             updatedCart: newCart,
+            newStage: 'BROWSING',
           };
         }
 
@@ -465,25 +567,22 @@ export class ToolExecutionEngine {
         }
 
         const item = currentCart.items[itemIndex]!;
-        const targetQty = Number(action.quantity) || 1;
+        const rawQty = action.quantity === undefined || action.quantity === null ? 1 : Number(action.quantity);
+        if (!Number.isInteger(rawQty) || rawQty < 0 || rawQty > 20) {
+          return { reply: 'Please specify a valid quantity between 0 and 20.' };
+        }
+        const targetQty = rawQty;
         const delta = targetQty - item.quantity;
 
         const product = await findProductByCode(tenantId, item.productCode);
-        if (product && delta > 0) {
-          const availableStock = product.stock - product.reserved;
-          if (availableStock < delta) {
-            return {
-              reply: `Sorry! Only ${Math.max(0, availableStock)} more unit(s) of *${product.name}* are available right now.`,
-            };
-          }
-        }
 
         const newCart: StoredCart = {
-          items: [...currentCart.items],
+          items: currentCart.items.map((i) => ({ ...i })),
           subtotal: 0,
+          reservationId: currentCart.reservationId,
         };
 
-        if (targetQty <= 0) {
+        if (targetQty === 0) {
           newCart.items.splice(itemIndex, 1);
         } else {
           newCart.items[itemIndex] = {
@@ -497,30 +596,76 @@ export class ToolExecutionEngine {
           0
         );
 
-        if (product && delta !== 0) {
-          await prisma.product.update({
-            where: { id: product.id },
-            data: {
-              reserved: delta > 0 ? { increment: delta } : { decrement: Math.abs(delta) },
-            },
+        try {
+          await prisma.$transaction(async (tx) => {
+            if (product && delta > 0) {
+              const affected = await tx.$executeRaw`
+                UPDATE "Product"
+                SET reserved = reserved + ${delta}, "updatedAt" = NOW()
+                WHERE id = ${product.id}::uuid
+                  AND "tenantId" = ${tenantId}::uuid
+                  AND (stock - reserved) >= ${delta}
+              `;
+              if (affected !== 1) throw new Error('OUT_OF_STOCK');
+            } else if (product && delta < 0) {
+              await tx.$executeRaw`
+                UPDATE "Product"
+                SET reserved = GREATEST(0, reserved - ${Math.abs(delta)}), "updatedAt" = NOW()
+                WHERE id = ${product.id}::uuid AND "tenantId" = ${tenantId}::uuid
+              `;
+            }
+
+            if (newCart.reservationId) {
+              if (newCart.items.length === 0) {
+                await tx.inventoryReservation.updateMany({
+                  where: { id: newCart.reservationId, tenantId, status: 'ACTIVE' },
+                  data: { status: 'RELEASED' },
+                });
+                newCart.reservationId = undefined;
+              } else {
+                await tx.inventoryReservation.updateMany({
+                  where: { id: newCart.reservationId, tenantId, status: 'ACTIVE' },
+                  data: {
+                    items: newCart.items.map((it) => ({
+                      productId: it.productId,
+                      quantity: it.quantity,
+                    })),
+                  },
+                });
+              }
+            }
+
+            await tx.conversation.update({
+              where: { id: conversation.id },
+              data: {
+                stage: newCart.items.length > 0 ? 'CART_ACTIVE' : 'BROWSING',
+                metadata: {
+                  ...(conversation.metadata as object),
+                  cart: newCart as any,
+                },
+              },
+            });
           });
+        } catch (err: any) {
+          if (err.message === 'OUT_OF_STOCK') {
+            const avail = product ? Math.max(0, product.stock - product.reserved) : 0;
+            return {
+              reply: `Sorry! Only ${avail} more unit(s) of *${item.name}* are available right now.`,
+            };
+          }
+          throw err;
         }
 
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            stage: newCart.items.length > 0 ? 'CART_ACTIVE' : 'BROWSING',
-            metadata: {
-              ...(conversation.metadata as object),
-              cart: newCart as any,
-            },
-          },
-        });
+        await syncWhatsAppCartToRedis(tenantId, conversation.customerPhone, newCart);
 
         const bill = computeBill(newCart);
         return {
-          reply: action.reply || `Updated *${item.name}* quantity to ${targetQty}.\n\n${formatBillBreakdown(bill)}`,
+          reply:
+            targetQty === 0
+              ? `Removed *${item.name}* from your cart.`
+              : action.reply || `Updated *${item.name}* quantity to ${targetQty}.\n\n${formatBillBreakdown(bill)}`,
           updatedCart: newCart,
+          newStage: newCart.items.length > 0 ? 'CART_ACTIVE' : 'BROWSING',
         };
       }
 
@@ -543,31 +688,39 @@ export class ToolExecutionEngine {
       }
 
       case 'CLEAR_CART': {
-        // Release all reservations
-        for (const item of currentCart.items) {
-          await prisma.product.update({
-            where: { id: item.productId },
+        await prisma.$transaction(async (tx) => {
+          for (const item of currentCart.items) {
+            await tx.$executeRaw`
+              UPDATE "Product"
+              SET reserved = GREATEST(0, reserved - ${item.quantity}), "updatedAt" = NOW()
+              WHERE id = ${item.productId}::uuid AND "tenantId" = ${tenantId}::uuid
+            `;
+          }
+
+          if (currentCart.reservationId) {
+            await tx.inventoryReservation.updateMany({
+              where: { id: currentCart.reservationId, tenantId, status: 'ACTIVE' },
+              data: { status: 'RELEASED' },
+            });
+          }
+
+          await tx.conversation.update({
+            where: { id: conversation.id },
             data: {
-              reserved: { decrement: item.quantity },
+              stage: 'BROWSING',
+              metadata: {
+                ...(conversation.metadata as object),
+                cart: { items: [], subtotal: 0 } as any,
+              },
             },
           });
-        }
-
-        const emptyCart: StoredCart = { items: [], subtotal: 0 };
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            stage: 'BROWSING',
-            metadata: {
-              ...(conversation.metadata as object),
-              cart: emptyCart as any,
-            },
-          },
         });
+
+        await syncWhatsAppCartToRedis(tenantId, conversation.customerPhone, { items: [], subtotal: 0 });
 
         return {
           reply: 'Your cart has been cleared. What would you like to explore next?',
-          updatedCart: emptyCart,
+          updatedCart: { items: [], subtotal: 0 },
           newStage: 'BROWSING',
         };
       }
@@ -890,9 +1043,13 @@ export class ToolExecutionEngine {
           if (recentPendingOrder) {
             let paymentUrl = normalizePaymentUrl(recentPendingOrder.trackingUrl);
             let gatewayName = recentPendingOrder.paymentMethod === 'PHONEPE_ONLINE' ? 'phonepe' : 'razorpay';
+            let isSandboxLink = false;
 
             if (!paymentUrl) {
-              // Detect platform from conversation metadata
+              const tenantCfg = await prisma.tenant.findUnique({
+                where: { id: tenantId },
+                select: { name: true, paymentConfigEncrypted: true },
+              });
               const existingMeta = (conversation.metadata as Record<string, any>) || {};
               const platform = (existingMeta['customerPlatform'] as CustomerPlatform) || 'unknown';
 
@@ -905,11 +1062,14 @@ export class ToolExecutionEngine {
                   currency: recentPendingOrder.currency || 'INR',
                   customerPhone: conversation.customerPhone,
                   customerName: recentPendingOrder.customerName || conversation.customerPhone,
+                  description: `Order #${recentPendingOrder.orderNumber} - ${tenantCfg?.name || 'Store'}`,
                 },
-                platform
+                platform,
+                tenantCfg?.paymentConfigEncrypted
               );
               paymentUrl = routerResult.paymentUrl;
               gatewayName = routerResult.gateway;
+              isSandboxLink = Boolean(routerResult.isSandboxMock);
 
               await prisma.order.update({
                 where: { id: recentPendingOrder.id },
@@ -923,9 +1083,11 @@ export class ToolExecutionEngine {
               });
             }
 
-            const gatewayTag = gatewayName === 'phonepe'
-              ? ' _(PhonePe Sandbox)_'
-              : (razorpayService.isSandbox ? ' _(Razorpay Sandbox)_' : '');
+            const gatewayTag = isSandboxLink
+              ? gatewayName === 'phonepe'
+                ? ' _(PhonePe Sandbox)_'
+                : ' _(Razorpay Sandbox)_'
+              : '';
 
             return {
               reply: `Here is your secure payment link${gatewayTag} for Order *#${recentPendingOrder.orderNumber}* totaling *₹${Number(recentPendingOrder.total).toFixed(2)}*:\n👉 ${paymentUrl}\n\n💳 UPI (PhonePe, GPay, Paytm), Cards & Netbanking accepted.\n⏳ *Reservation:* Your items are reserved. Please complete payment to confirm your order! ✨`,
@@ -1107,10 +1269,60 @@ export class ToolExecutionEngine {
           }
         }
 
-        const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+        const tenantInfo = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { name: true, paymentConfigEncrypted: true },
+        });
 
-        // Create atomic order and order items with price snapshots
+        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const randPart = crypto.randomBytes(3).toString('hex').toUpperCase();
+        const orderNumber = `ORD-${datePart}-${randPart}`;
+
+        // Create atomic reservation-linked Order, OrderItems & merged CustomerMemory
         const order = await prisma.$transaction(async (tx) => {
+          const reservationExpires = new Date(Date.now() + 15 * 60 * 1000);
+          const resItems = currentCart.items.map((it) => ({
+            productId: it.productId,
+            quantity: it.quantity,
+          }));
+
+          let reservationId: string | undefined;
+          if (currentCart.reservationId) {
+            const extended = await tx.inventoryReservation.updateMany({
+              where: { id: currentCart.reservationId, tenantId, status: 'ACTIVE' },
+              data: { items: resItems, expiresAt: reservationExpires },
+            });
+            if (extended.count === 1) {
+              reservationId = currentCart.reservationId;
+            }
+          }
+
+          if (!reservationId) {
+            // Re-reserve atomically in case cart reservation expired before checkout
+            for (const item of currentCart.items) {
+              const affected = await tx.$executeRaw`
+                UPDATE "Product"
+                SET reserved = reserved + ${item.quantity}, "updatedAt" = NOW()
+                WHERE id = ${item.productId}::uuid
+                  AND "tenantId" = ${tenantId}::uuid
+                  AND status = 'ACTIVE'
+                  AND (stock - reserved) >= ${item.quantity}
+              `;
+              if (affected !== 1) {
+                throw new Error(`OUT_OF_STOCK:${item.name}`);
+              }
+            }
+            const createdRes = await tx.inventoryReservation.create({
+              data: {
+                tenantId,
+                items: resItems,
+                expiresAt: reservationExpires,
+                status: 'ACTIVE',
+              },
+            });
+            reservationId = createdRes.id;
+          }
+
           const newOrder = await tx.order.create({
             data: {
               tenantId,
@@ -1123,11 +1335,11 @@ export class ToolExecutionEngine {
               total: bill.netPayable,
               currency: 'INR',
               status: 'PENDING_PAYMENT',
+              reservationId,
               deliveryAddress: confirmedAddress as any,
             },
           });
 
-          // Create immutable OrderItem snapshots
           for (const item of currentCart.items) {
             await tx.orderItem.create({
               data: {
@@ -1143,7 +1355,20 @@ export class ToolExecutionEngine {
             });
           }
 
-          // Persist address in CustomerMemory and mark repeat customer
+          const existingMemory = await tx.customerMemory.findUnique({
+            where: {
+              tenantId_customerPhone: {
+                tenantId,
+                customerPhone: conversation.customerPhone,
+              },
+            },
+            select: { preferredAttributes: true },
+          });
+          const mergedPrefs = {
+            ...((existingMemory?.preferredAttributes as Record<string, any>) || {}),
+            savedAddress: confirmedAddress,
+          };
+
           await tx.customerMemory.upsert({
             where: {
               tenantId_customerPhone: {
@@ -1157,30 +1382,19 @@ export class ToolExecutionEngine {
               customerName: confirmedAddress?.name || null,
               totalOrders: 1,
               isRepeatCustomer: false,
-              preferredAttributes: {
-                savedAddress: confirmedAddress,
-              },
+              preferredAttributes: mergedPrefs,
             },
             update: {
               customerName: confirmedAddress?.name || undefined,
               totalOrders: { increment: 1 },
               isRepeatCustomer: true,
-              preferredAttributes: {
-                savedAddress: confirmedAddress,
-              },
+              preferredAttributes: mergedPrefs,
             },
           });
 
           return newOrder;
         });
 
-        // Generate payment link via the gateway router (PhonePe for mobile, Razorpay for web)
-        const tenantInfo = await prisma.tenant.findUnique({
-          where: { id: tenantId },
-          select: { name: true },
-        });
-
-        // Detect platform from conversation metadata (set by WhatsApp/web session)
         const platform = (meta['customerPlatform'] as CustomerPlatform) || 'unknown';
 
         const routerResult = await paymentGatewayRouter.createPaymentLink(
@@ -1194,12 +1408,12 @@ export class ToolExecutionEngine {
             customerPhone: conversation.customerPhone,
             description: `Order #${order.orderNumber} - ${tenantInfo?.name || 'Store'}`,
           },
-          platform
+          platform,
+          tenantInfo?.paymentConfigEncrypted
         );
 
         const paymentUrl = routerResult.paymentUrl;
 
-        // Update order with payment link details
         await prisma.order.update({
           where: { id: order.id },
           data: {
@@ -1211,7 +1425,6 @@ export class ToolExecutionEngine {
           },
         });
 
-        // Clear cart now that order is created
         const emptyCart: StoredCart = { items: [], subtotal: 0 };
         await prisma.conversation.update({
           where: { id: conversation.id },
@@ -1227,10 +1440,12 @@ export class ToolExecutionEngine {
           },
         });
 
+        await syncWhatsAppCartToRedis(tenantId, conversation.customerPhone, emptyCart);
+
         const addressSummary = formatAddress(confirmedAddress);
         const gatewayLabel = routerResult.gateway === 'phonepe'
           ? 'PhonePe' + (routerResult.isSandboxMock ? ' _(Sandbox)_' : '')
-          : 'Razorpay' + (razorpayService.isSandbox ? ' _(Sandbox)_' : '');
+          : 'Razorpay' + (routerResult.isSandboxMock ? ' _(Sandbox)_' : '');
 
         const reply = `🎉 *Order #${orderNumber} Created!*\n\n${formatBillBreakdown(bill)}\n\n📍 *Delivery To:*\n${addressSummary}\n\nPlease complete your secure payment via ${gatewayLabel}:\n👉 ${paymentUrl}\n\n💳 *Payment Methods:* UPI (PhonePe, Google Pay, Paytm), Cards & Netbanking.\n⏳ *Reservation:* Your items are reserved for 15 minutes. Once payment is confirmed, your order will be dispatched immediately! ✨`;
 
@@ -1280,8 +1495,9 @@ export class ToolExecutionEngine {
           targetOrder = await prisma.order.findFirst({
             where: {
               tenantId,
+              customerPhone: { in: phoneVariants },
               OR: [
-                { id: lookupKey && lookupKey.length === 36 ? lookupKey : undefined },
+                ...(UUID_REGEX.test(lookupKey) ? [{ id: lookupKey }] : []),
                 { orderNumber: { equals: lookupKey, mode: 'insensitive' } },
                 { awbCode: { equals: lookupKey, mode: 'insensitive' } },
                 { trackingNumber: { equals: lookupKey, mode: 'insensitive' } },
@@ -1327,7 +1543,7 @@ export class ToolExecutionEngine {
         // Get unified, real-time ground truth from Delhivery tracking engine
         const trackingInfo = getDelhiveryLiveTrackingStatus(
           targetOrder,
-          targetOrder.tenant?.slug || 'aura'
+          targetOrder.tenant?.slug || ''
         );
 
         const reply = formatDelhiveryWhatsAppTrackingReply(trackingInfo);
