@@ -1,9 +1,13 @@
 import { type FastifyPluginAsync } from 'fastify';
 import { createHash } from 'node:crypto';
 import { prisma } from '@wcos/db';
-import { notifyOrderPaymentConfirmed } from '../../services/payment-notifications.js';
+import { timingSafeCompare } from '@wcos/crypto';
+import { createTenantPaymentServices } from '@wcos/payments';
+import { commitConfirmedOrderPayment } from '../../services/order-payment-commit.js';
+import { config } from '../../config.js';
 
-/** Verify PhonePe SHA256 webhook checksum inline (no external dep needed) */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function verifyPhonePeChecksum(
   base64Response: string,
   receivedChecksum: string,
@@ -13,55 +17,67 @@ function verifyPhonePeChecksum(
   const raw = `${base64Response}${saltKey}`;
   const sha256 = createHash('sha256').update(raw).digest('hex');
   const expected = `${sha256}###${saltIndex}`;
-  return expected === receivedChecksum;
+  return timingSafeCompare(expected, receivedChecksum);
 }
 
-const PHONEPE_SALT_KEY = process.env['PHONEPE_SALT_KEY'] || '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399';
-const PHONEPE_SALT_INDEX = parseInt(process.env['PHONEPE_SALT_INDEX'] || '1', 10);
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 interface PhonePeWebhookParams {
   tenantId: string;
 }
 
-/**
- * PhonePe Webhook Handler
- *
- * Handles callbacks from PhonePe's Pay Page after payment completion.
- * Verifies the SHA256 + saltKey checksum before processing any state transitions.
- *
- * Endpoint: POST /webhooks/phonepe/:tenantId
- * Registration: also handles GET redirect callbacks from PhonePe Pay Page UI
- */
 export const phonePeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── POST: Server-to-server callback from PhonePe ──────────────
   fastify.post<{ Params: PhonePeWebhookParams }>(
     '/webhooks/phonepe/:tenantId',
     async (request, reply) => {
       const { tenantId } = request.params;
+      if (!UUID_REGEX.test(tenantId)) {
+        return reply.status(400).send({ error: 'Invalid tenantId parameter' });
+      }
 
-      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+      const tenant = await prisma.tenant.findFirst({
+        where: { id: tenantId, status: 'ACTIVE' },
+        select: { id: true, paymentConfigEncrypted: true },
+      });
       if (!tenant) {
-        return reply.status(404).send({ error: 'Tenant not found' });
+        return reply.status(404).send({ error: 'Active tenant not found' });
       }
 
       const body = (request.body || {}) as Record<string, any>;
-
-      // PhonePe sends: { response: "<base64>" } with header X-VERIFY
-      const base64Response: string = body['response'] || '';
-      const xVerify = (request.headers['x-verify'] as string) || '';
+      const base64Response = typeof body['response'] === 'string' ? body['response'] : '';
+      const xVerify = typeof request.headers['x-verify'] === 'string' ? request.headers['x-verify'] : '';
 
       if (!base64Response || !xVerify) {
         return reply.status(400).send({ error: 'Missing PhonePe response or X-VERIFY header' });
       }
 
-      // Verify checksum
-      const isValid = verifyPhonePeChecksum(base64Response, xVerify, PHONEPE_SALT_KEY, PHONEPE_SALT_INDEX);
+      const { secrets } = createTenantPaymentServices(tenant.id, tenant.paymentConfigEncrypted);
+      const saltKey =
+        secrets?.phonepeSaltKey ||
+        process.env['PHONEPE_SALT_KEY'] ||
+        (config.NODE_ENV !== 'production' ? '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399' : '');
+      const saltIndex =
+        secrets?.phonepeSaltIndex ??
+        parseInt(process.env['PHONEPE_SALT_INDEX'] || '1', 10);
+
+      if (!saltKey) {
+        return reply.status(503).send({ error: 'PhonePe salt key not configured for tenant' });
+      }
+
+      const isValid = verifyPhonePeChecksum(base64Response, xVerify, saltKey, saltIndex);
       if (!isValid) {
         fastify.log.warn({ tenantId }, '[PhonePe] Webhook signature verification failed');
         return reply.status(401).send({ error: 'Invalid PhonePe checksum' });
       }
 
-      // Decode and parse the response
       let decoded: any;
       try {
         decoded = JSON.parse(Buffer.from(base64Response, 'base64').toString('utf8'));
@@ -69,117 +85,55 @@ export const phonePeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({ error: 'Failed to decode PhonePe response payload' });
       }
 
-      const transactionId: string = decoded?.data?.merchantTransactionId || decoded?.merchantTransactionId || '';
-      const status: string = decoded?.data?.state || decoded?.state || decoded?.code || '';
-      const phonePePaymentId: string = decoded?.data?.transactionId || decoded?.transactionId || transactionId;
+      const transactionId: string =
+        decoded?.data?.merchantTransactionId || decoded?.merchantTransactionId || '';
+      const state: string =
+        decoded?.data?.state || decoded?.state || decoded?.code || '';
+      const phonePePaymentId: string =
+        decoded?.data?.transactionId || decoded?.transactionId || transactionId;
+      const paidPaise = Number(decoded?.data?.amount ?? decoded?.amount ?? 0);
 
-      // Persist raw webhook event
       const eventMessageId = transactionId || `phonepe-evt-${Date.now()}`;
       await prisma.rawWebhookEvent.create({
         data: {
           tenantId,
           source: 'phonepe',
-          messageId: eventMessageId,
+          messageId: String(eventMessageId),
           payload: decoded,
         },
       });
 
-      const isSuccess =
-        status === 'COMPLETED' ||
-        status === 'PAYMENT_SUCCESS' ||
-        status === 'SUCCESS' ||
-        decoded?.success === true;
+      const isTerminalSuccess =
+        decoded?.success !== false &&
+        (state === 'COMPLETED' || state === 'PAYMENT_SUCCESS');
 
-      if (isSuccess && transactionId) {
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId);
+      if (isTerminalSuccess && transactionId) {
         const orConditions: any[] = [
-          ...(isUuid ? [{ id: transactionId }] : []),
+          ...(UUID_REGEX.test(transactionId) ? [{ id: transactionId }] : []),
           { razorpayOrderId: `PHONEPE:${transactionId}` },
           { razorpayOrderId: transactionId },
         ];
 
         const order = await prisma.order.findFirst({
           where: { tenantId, OR: orConditions },
-          include: { items: true, reservation: true },
+          select: { id: true },
         });
 
-        if (order && order.status !== 'PAYMENT_CONFIRMED') {
-          await prisma.$transaction(async (tx) => {
-            await tx.order.update({
-              where: { id: order.id },
-              data: {
-                status: 'PAYMENT_CONFIRMED',
-                paymentMethod: 'PHONEPE_ONLINE' as any,
-                razorpayPaymentId: phonePePaymentId,
-                statusHistory: [
-                  ...((order.statusHistory as any[]) || []),
-                  {
-                    status: 'PAYMENT_CONFIRMED',
-                    timestamp: new Date().toISOString(),
-                    updatedBy: 'phonepe_webhook',
-                    note: `PhonePe payment confirmed (Txn: ${phonePePaymentId})`,
-                  },
-                ],
-              },
+        if (order) {
+          try {
+            await commitConfirmedOrderPayment({
+              tenantId,
+              orderId: order.id,
+              gateway: 'PhonePe',
+              paymentMethod: 'PHONEPE_ONLINE',
+              paymentId: String(phonePePaymentId),
+              amountPaidPaise: paidPaise,
+              outboxPayloadExtra: { phonePeTransactionId: String(phonePePaymentId) },
             });
-
-            if (order.reservationId) {
-              const reservation = await tx.inventoryReservation.findUnique({
-                where: { id: order.reservationId },
-              });
-              if (reservation && reservation.status === 'ACTIVE') {
-                await tx.inventoryReservation.update({
-                  where: { id: reservation.id },
-                  data: { status: 'COMMITTED' },
-                });
-                const items = Array.isArray(reservation.items)
-                  ? (reservation.items as Array<{ productId: string; quantity: number }>)
-                  : [];
-                for (const item of items) {
-                  if (item.productId && typeof item.quantity === 'number') {
-                    await tx.product.update({
-                      where: { id: item.productId },
-                      data: {
-                        stock: { decrement: item.quantity },
-                        reserved: { decrement: item.quantity },
-                      },
-                    });
-                  }
-                }
-              }
-            }
-
-            // Reset any active conversation waiting for this order
-            await tx.conversation.updateMany({
-              where: { tenantId, pendingOrderId: order.id },
-              data: {
-                stage: 'POST_ORDER',
-                pendingOrderId: null,
-              },
-            });
-
-            await tx.outboxEvent.create({
-              data: {
-                tenantId,
-                aggregateId: order.id,
-                aggregateType: 'ORDER',
-                eventType: 'ORDER_PAID',
-                payload: {
-                  orderId: order.id,
-                  orderNumber: order.orderNumber,
-                  total: order.total.toString(),
-                  customerPhone: order.customerPhone,
-                  phonePeTransactionId: phonePePaymentId,
-                },
-              },
-            });
-          });
-
-          await notifyOrderPaymentConfirmed({
-            order,
-            transactionId: phonePePaymentId,
-            gatewayName: 'PhonePe',
-          });
+          } catch (err: any) {
+            fastify.log.error({ err: err.message, orderId: order.id }, '[PhonePeWebhook] Rejected payment commit');
+            return reply.status(400).send({ error: err.message });
+          }
         }
       }
 
@@ -187,8 +141,7 @@ export const phonePeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // ─── GET: Customer redirect callback after payment ──────────────
-  // PhonePe redirects customer browser to redirectUrl with query params
+  // ─── GET: Customer redirect callback after payment (XSS-safe) ───
   fastify.get<{
     Querystring: { transactionId?: string; orderId?: string; status?: string; tenantId?: string };
   }>(
@@ -196,16 +149,16 @@ export const phonePeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { transactionId = '', orderId = '', status = '' } = request.query;
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-      const order = isUuid && orderId
-        ? await prisma.order.findUnique({ where: { id: orderId } })
+      const order = UUID_REGEX.test(orderId)
+        ? await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } })
         : null;
 
-      // PhonePe Pay Page returns query params to indicate completion
       const isSuccess =
         status === 'SUCCESS' ||
         status === 'COMPLETED' ||
-        (order && order.status === 'PAYMENT_CONFIRMED');
+        order?.status === 'PAYMENT_CONFIRMED';
+
+      const safeTxn = escapeHtml(String(transactionId));
 
       const html = `
         <!DOCTYPE html>
@@ -230,13 +183,16 @@ export const phonePeWebhookRoutes: FastifyPluginAsync = async (fastify) => {
               <div class="icon">${isSuccess ? '✅' : '⏳'}</div>
               <h1 style="color: ${isSuccess ? '#4ade80' : '#f8fafc'}">${isSuccess ? 'Payment Successful!' : 'Payment Received'}</h1>
               <p>${isSuccess ? 'Your PhonePe payment has been confirmed. A WhatsApp confirmation has been sent to you.' : 'Your payment is being processed. You will receive a WhatsApp confirmation shortly.'}</p>
-              ${transactionId ? `<div class="txn">Txn ID: ${transactionId}</div>` : ''}
+              ${safeTxn ? `<div class="txn">Txn ID: ${safeTxn}</div>` : ''}
               <a href="/" class="btn">Back to Store</a>
             </div>
           </body>
         </html>
       `;
-      return reply.type('text/html').send(html);
+      return reply
+        .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+        .type('text/html')
+        .send(html);
     }
   );
 };

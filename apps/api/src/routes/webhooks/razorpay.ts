@@ -1,35 +1,50 @@
 import { type FastifyPluginAsync } from 'fastify';
 import { prisma } from '@wcos/db';
 import { verifyHmacSha256 } from '@wcos/crypto';
-import { notifyOrderPaymentConfirmed } from '../../services/payment-notifications.js';
+import { createTenantPaymentServices } from '@wcos/payments';
+import { commitConfirmedOrderPayment } from '../../services/order-payment-commit.js';
+import { config } from '../../config.js';
 
 interface RazorpayWebhookParams {
   tenantId: string;
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const razorpayWebhookRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Params: RazorpayWebhookParams }>(
     '/webhooks/razorpay/:tenantId',
     async (request, reply) => {
       const { tenantId } = request.params;
-      const signature = request.headers['x-razorpay-signature'] as string | undefined;
+      if (!UUID_REGEX.test(tenantId)) {
+        return reply.status(400).send({ error: 'Invalid tenantId parameter' });
+      }
 
+      const signature = request.headers['x-razorpay-signature'] as string | undefined;
       if (!signature || !request.rawBody) {
         return reply.status(400).send({ error: 'Missing signature or payload' });
       }
 
-      // 1. Fetch tenant to verify existence
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId },
+      const tenant = await prisma.tenant.findFirst({
+        where: { id: tenantId, status: 'ACTIVE' },
+        select: { id: true, paymentConfigEncrypted: true },
       });
 
       if (!tenant) {
-        return reply.status(404).send({ error: 'Tenant not found' });
+        return reply.status(404).send({ error: 'Active tenant not found' });
       }
 
-      const webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'wcos-razorpay-secret';
-      const isValid = verifyHmacSha256(request.rawBody, webhookSecret, signature);
+      const { secrets } = createTenantPaymentServices(tenant.id, tenant.paymentConfigEncrypted);
+      const webhookSecret =
+        secrets?.razorpayWebhookSecret ||
+        process.env['RAZORPAY_WEBHOOK_SECRET'] ||
+        (config.NODE_ENV !== 'production' ? 'wcos-razorpay-secret' : '');
 
+      if (!webhookSecret) {
+        return reply.status(503).send({ error: 'Razorpay webhook secret not configured for tenant' });
+      }
+
+      const isValid = verifyHmacSha256(request.rawBody, webhookSecret, signature);
       if (!isValid) {
         return reply.status(401).send({ error: 'Invalid Razorpay signature' });
       }
@@ -64,111 +79,64 @@ export const razorpayWebhookRoutes: FastifyPluginAsync = async (fastify) => {
         razorpayOrderId ||
         `rzp-evt-${Date.now()}`;
 
-      // 2. Persist raw event
       await prisma.rawWebhookEvent.create({
         data: {
           tenantId,
           source: 'razorpay',
-          messageId: eventMessageId,
+          messageId: String(eventMessageId),
           payload: body,
         },
       });
 
-      // 3. Process payment success
       const isSuccessEvent =
         event === 'payment.captured' ||
         event === 'order.paid' ||
         event === 'payment_link.paid';
 
       if (isSuccessEvent) {
-        // Build robust multi-predicate lookup
         const orConditions: any[] = [];
         if (razorpayOrderId) orConditions.push({ razorpayOrderId });
-        if (notesOrderId) orConditions.push({ id: notesOrderId });
+        if (notesOrderId && UUID_REGEX.test(String(notesOrderId))) {
+          orConditions.push({ id: notesOrderId });
+        }
         if (notesOrderNumber) orConditions.push({ orderNumber: notesOrderNumber });
         if (paymentLinkEntity?.id) orConditions.push({ razorpayOrderId: paymentLinkEntity.id });
 
         const order =
           orConditions.length > 0
             ? await prisma.order.findFirst({
-                where: {
-                  tenantId,
-                  OR: orConditions,
-                },
-                include: {
-                  items: true,
-                  reservation: true,
-                },
+                where: { tenantId, OR: orConditions },
+                select: { id: true, total: true, currency: true },
               })
             : null;
 
-        if (order && order.status !== 'PAYMENT_CONFIRMED') {
-          const paymentId = paymentEntity?.id || `pay_${Date.now().toString(36)}`;
-          await prisma.$transaction(async (tx) => {
-            // Mark order as PAYMENT_CONFIRMED
-            await tx.order.update({
-              where: { id: order.id },
-              data: {
-                status: 'PAYMENT_CONFIRMED',
-                paymentMethod: 'RAZORPAY_ONLINE',
-                razorpayPaymentId: paymentId,
-                razorpayOrderId: razorpayOrderId || order.razorpayOrderId || undefined,
-              },
+        if (order) {
+          const paymentId = String(paymentEntity?.id || paymentLinkEntity?.id || `pay_${Date.now().toString(36)}`);
+          const paidPaise = Number(
+            paymentEntity?.amount ??
+              orderEntity?.amount_paid ??
+              paymentLinkEntity?.amount_paid ??
+              0
+          );
+          const paidCurrency =
+            paymentEntity?.currency || orderEntity?.currency || paymentLinkEntity?.currency;
+
+          try {
+            await commitConfirmedOrderPayment({
+              tenantId,
+              orderId: order.id,
+              gateway: 'Razorpay',
+              paymentMethod: 'RAZORPAY_ONLINE',
+              paymentId,
+              gatewayOrderId: razorpayOrderId,
+              amountPaidPaise: paidPaise,
+              currency: paidCurrency,
+              outboxPayloadExtra: { razorpayPaymentId: paymentId },
             });
-
-            // If an inventory reservation is tied to the order, commit it and deduct stock
-            if (order.reservationId) {
-              const reservation = await tx.inventoryReservation.findUnique({
-                where: { id: order.reservationId },
-              });
-
-              if (reservation && reservation.status === 'ACTIVE') {
-                await tx.inventoryReservation.update({
-                  where: { id: reservation.id },
-                  data: { status: 'COMMITTED' },
-                });
-
-                const items = Array.isArray(reservation.items)
-                  ? (reservation.items as Array<{ productId: string; quantity: number }>)
-                  : [];
-
-                for (const item of items) {
-                  if (item.productId && typeof item.quantity === 'number') {
-                    await tx.product.update({
-                      where: { id: item.productId },
-                      data: {
-                        stock: { decrement: item.quantity },
-                        reserved: { decrement: item.quantity },
-                      },
-                    });
-                  }
-                }
-              }
-            }
-
-            // Create outbox event for guaranteed event delivery
-            await tx.outboxEvent.create({
-              data: {
-                tenantId,
-                aggregateId: order.id,
-                aggregateType: 'ORDER',
-                eventType: 'ORDER_PAID',
-                payload: {
-                  orderId: order.id,
-                  orderNumber: order.orderNumber,
-                  total: order.total.toString(),
-                  customerPhone: order.customerPhone,
-                },
-              },
-            });
-          });
-
-          // Send guaranteed WhatsApp order confirmation
-          await notifyOrderPaymentConfirmed({
-            order,
-            transactionId: paymentId,
-            gatewayName: 'Razorpay',
-          });
+          } catch (err: any) {
+            fastify.log.error({ err: err.message, orderId: order.id }, '[RazorpayWebhook] Rejected payment commit');
+            return reply.status(400).send({ error: err.message });
+          }
         }
       }
 
