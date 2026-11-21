@@ -1,5 +1,5 @@
 // ╔═══════════════════════════════════════════════════════════════╗
-// ║  Auth Library — Session Management                           ║
+// ║  Auth Library — Session & RBAC Management                    ║
 // ║                                                               ║
 // ║  All tenant identification flows through here.                ║
 // ║  The tenantId is NEVER taken from user input — it is          ║
@@ -9,17 +9,22 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { prisma } from '@wcos/db';
 
 const SESSION_COOKIE = 'wcos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Secret key for JWT signing — must be at least 32 bytes
+// Secret key for JWT signing — fail closed in production
 function getSecretKey(): Uint8Array {
-  const secret = process.env.JWT_SECRET || 'wcos-dashboard-secret-change-in-production';
-  return new TextEncoder().encode(secret);
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < 32 || secret === 'wcos-dashboard-secret-change-in-production') {
+      throw new Error('FATAL: JWT_SECRET must be set to a strong secret (>= 32 chars) in production.');
+    }
+  }
+  return new TextEncoder().encode(secret || 'wcos-dashboard-dev-only-secret-change-me');
 }
-
-// ─── Session Payload ──────────────────────────────────────────────
 
 export type StaffRole = 'OWNER' | 'STORE_MANAGER' | 'FULFILLMENT_LEAD' | 'SUPPORT_CONCIERGE';
 
@@ -33,7 +38,9 @@ export interface SessionPayload extends JWTPayload {
   avatarUrl?: string;
 }
 
-// ─── Create Session ───────────────────────────────────────────────
+export function hasRole(session: SessionPayload, allowedRoles: readonly StaffRole[]): boolean {
+  return allowedRoles.includes(session.role);
+}
 
 export async function createSession(payload: {
   tenantId: string;
@@ -68,8 +75,6 @@ export async function createSession(payload: {
   });
 }
 
-// ─── Verify Session ───────────────────────────────────────────────
-
 export async function verifySession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
@@ -78,20 +83,60 @@ export async function verifySession(): Promise<SessionPayload | null> {
 
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    if (!payload.tenantId || typeof payload.tenantId !== 'string') {
+    if (
+      !payload.tenantId ||
+      typeof payload.tenantId !== 'string' ||
+      !UUID_REGEX.test(payload.tenantId)
+    ) {
       return null;
     }
-    const session = payload as any;
-    if (!session.role) {
-      session.role = 'OWNER';
+
+    // Verify tenant is still ACTIVE in database
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: payload.tenantId },
+      select: { id: true, name: true, status: true },
+    });
+    if (!tenant || (tenant.status !== 'ACTIVE' && tenant.status !== 'ONBOARDING')) {
+      return null;
     }
-    return session as SessionPayload;
+
+    let resolvedRole: StaffRole = (payload.role as StaffRole) || 'SUPPORT_CONCIERGE';
+    let resolvedStaffName = typeof payload.staffName === 'string' ? payload.staffName : undefined;
+
+    // If session belongs to a StaffUser, verify active status and authoritative role from DB
+    if (typeof payload.staffId === 'string' && payload.staffId) {
+      if (!UUID_REGEX.test(payload.staffId)) {
+        return null;
+      }
+      const staff = await prisma.staffUser.findFirst({
+        where: {
+          id: payload.staffId,
+          tenantId: tenant.id,
+          status: 'ACTIVE',
+        },
+        select: { id: true, role: true, fullName: true },
+      });
+      if (!staff) {
+        return null;
+      }
+      resolvedRole = staff.role as StaffRole;
+      resolvedStaffName = staff.fullName;
+    } else if (payload.role && payload.role !== 'OWNER') {
+      // Sessions without a staffId are only valid as OWNER sessions
+      return null;
+    }
+
+    return {
+      ...(payload as SessionPayload),
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      role: resolvedRole,
+      staffName: resolvedStaffName,
+    };
   } catch {
     return null;
   }
 }
-
-// ─── Get Session (throws if not authenticated) ────────────────────
 
 export async function getSession(): Promise<SessionPayload> {
   const session = await verifySession();
@@ -101,14 +146,18 @@ export async function getSession(): Promise<SessionPayload> {
   return session;
 }
 
-// ─── Get Tenant ID (convenience — the most used function) ─────────
+export async function requireRole(allowedRoles: readonly StaffRole[]): Promise<SessionPayload> {
+  const session = await getSession();
+  if (!allowedRoles.includes(session.role)) {
+    throw new Error('Access denied: Insufficient role permissions');
+  }
+  return session;
+}
 
 export async function getTenantId(): Promise<string> {
   const session = await getSession();
   return session.tenantId;
 }
-
-// ─── Destroy Session ──────────────────────────────────────────────
 
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();

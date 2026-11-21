@@ -40,6 +40,7 @@ export interface ConsignmentCreationInput {
   totalAmount: number;
   paymentMethod: string;
   storeSlug?: string;
+  storeName?: string;
   staffName?: string;
 }
 
@@ -157,16 +158,17 @@ export function generateAwbNumber(
 export function generateMilestones(
   _courier?: any,
   awbCode: string = '',
-  city: string = 'Bengaluru',
-  dispatchedDate: Date = new Date()
+  city: string = '',
+  dispatchedDate: Date = new Date(),
+  storeName: string = 'Fulfillment Hub'
 ): TrackingMilestone[] {
   // Compute realistic chronological milestones for Delhivery Express
   const result = computeDelhiveryMilestones({
     awbCode,
-    city,
+    city: city || 'Dispatch Hub',
     dispatchedDate,
     orderStatus: 'SHIPPED',
-    storeName: 'Aura Luxe Fulfillment Hub',
+    storeName,
   });
   return result.milestones;
 }
@@ -182,28 +184,32 @@ export async function createConsignment(input: ConsignmentCreationInput): Promis
   const awbCode = generateDelhiveryAwb(seed);
   const now = new Date();
 
-  const city = input.deliveryAddress?.city || 'Bengaluru';
+  const city = input.deliveryAddress?.city || 'Destination City';
 
   // Base URL for storefront customer tracking
-  const storefrontBase =
+  const storefrontBase = (
     process.env['NEXT_PUBLIC_STOREFRONT_URL'] ||
     process.env['STOREFRONT_URL'] ||
-    'http://localhost:3005';
+    'http://localhost:3005'
+  ).replace(/\/$/, '');
 
-  const slug = input.storeSlug || 'aura';
-  const trackingUrl = `${storefrontBase}/${slug}/track?awb=${awbCode}`;
+  const slug = (input.storeSlug || '').replace(/^\/+|\/+$/g, '');
+  const trackingUrl = slug
+    ? `${storefrontBase}/${slug}/track?awb=${awbCode}`
+    : `${storefrontBase}/track?awb=${awbCode}`;
   const courierPortalUrl = `https://www.delhivery.com/track/package/${awbCode.replace('DEL-', '')}`;
 
   // Generate barcodes and QR codes
   const barcodeSvg = generateBarcodeSvg(awbCode, 44);
   const qrCodeSvg = await generateQrCodeSvg(trackingUrl, 130);
 
+  const hubName = input.storeName ? `${input.storeName} Fulfillment Hub` : 'Fulfillment Hub';
   const calc = computeDelhiveryMilestones({
     awbCode,
     city,
     dispatchedDate: now,
     orderStatus: 'SHIPPED',
-    storeName: 'Aura Luxe Fulfillment Hub',
+    storeName: hubName,
   });
 
   return {

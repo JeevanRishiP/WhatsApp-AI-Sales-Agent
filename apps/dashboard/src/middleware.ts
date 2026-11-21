@@ -11,26 +11,41 @@ import { jwtVerify } from 'jose';
 const SESSION_COOKIE = 'wcos_session';
 
 // Routes that don't require authentication
-const PUBLIC_ROUTES = ['/login', '/api/auth'];
+const PUBLIC_ROUTES = ['/login'];
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.JWT_SECRET || 'wcos-dashboard-secret-change-in-production';
-  return new TextEncoder().encode(secret);
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < 32 || secret === 'wcos-dashboard-secret-change-in-production') {
+      throw new Error('FATAL: JWT_SECRET must be set to a strong secret (>= 32 chars) in production.');
+    }
+  }
+  return new TextEncoder().encode(secret || 'wcos-dashboard-dev-only-secret-change-me');
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  // Allow explicit dev-only demo login endpoint only when explicitly enabled
+  if (
+    pathname === '/api/auth/demo-login' &&
+    process.env.NODE_ENV === 'development' &&
+    process.env.ENABLE_DEMO_LOGIN === 'true'
+  ) {
     return NextResponse.next();
   }
 
-  // Allow static assets and Next.js internals
+  // Allow public routes
+  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+    return NextResponse.next();
+  }
+
+  // Allow static assets and Next.js internals (never exempt /api/* routes)
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.includes('.')
+    pathname === '/favicon.ico' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml'
   ) {
     return NextResponse.next();
   }
