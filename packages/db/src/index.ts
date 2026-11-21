@@ -1,11 +1,11 @@
 /**
  * @wcos/db — Database package
  *
- * Re-exports the Prisma client, namespaces, and all generated model & enum types.
+ * Re-exports the Prisma 7 client, namespaces, and all generated model & enum types.
  */
 
-export { prisma, type PrismaClient } from './client.js';
-export { Prisma } from '@prisma/client';
+export { prisma, withTenantContext, type PrismaClient } from './client.js';
+export { Prisma } from './generated/prisma/client.js';
 export {
   TenantStatus,
   TenantPlan,
@@ -15,7 +15,7 @@ export {
   ReservationStatus,
   ConversationStage,
   OutboxStatus,
-} from '@prisma/client';
+} from './generated/prisma/client.js';
 export type {
   Tenant,
   Product,
@@ -29,5 +29,5 @@ export type {
   OutboxEvent,
   RawWebhookEvent,
   AuditLog,
-} from '@prisma/client';
-export * from '@prisma/client';
+} from './generated/prisma/client.js';
+export * from './generated/prisma/client.js';
